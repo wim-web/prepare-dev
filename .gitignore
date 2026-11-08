@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.prepare-dev/daemon.json
+.prepare-dev/index.json
+.prepare-dev/tmp/
+.prepare-dev/runs/
+model/.lake/
+.DS_Store
+.prepare-dev/daemon.log
+
+# MCP registration written by `prepare-dev init` (contains machine-specific absolute paths)
+.mcp.json
+.codex/

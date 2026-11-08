@@ -1,0 +1,8 @@
+{
+  "records_dir": "prepare",
+  "wait": { "default_timeout_ms": 50000 },
+  "plugins": {
+    "lean4": { "project_dir": "model", "allowed_axioms": ["propext", "Classical.choice", "Quot.sound"] },
+    "vitest": { "project_dir": ".", "impl_files": ["packages/runtime/src/questions.ts", "packages/runtime/src/store.ts", "packages/core/src/schemas.ts"] }
+  }
+}

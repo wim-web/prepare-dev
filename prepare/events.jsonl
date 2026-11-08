@@ -1,0 +1,14 @@
+{"ts":"2026-11-08T02:20:39.064Z","type":"record.discover","id":"SPEC-0001","path":"prepare/specs/SPEC-0001.md","rev":1,"sha256":"85f820f68bcf112ac872b377f545a00f47fe39cfa1ddc4ee667fba40f2d34dfd"}
+{"ts":"2026-11-08T02:20:39.990Z","type":"record.write","id":"REQ-0001","path":"prepare/requirements/REQ-0001.md","rev":1,"sha256":"2bc07c3da72d314e5124b88c47776d1fed049c55b7ff90e241fd105f2c67facc"}
+{"ts":"2026-11-08T02:21:34.958Z","type":"external_change","id":"SPEC-0001","path":"prepare/specs/SPEC-0001.md","rev_from":1,"rev_to":2,"sha256_from":"85f820f68bcf112ac872b377f545a00f47fe39cfa1ddc4ee667fba40f2d34dfd","sha256_to":"6b28b2592848c70099d0799e34ae21fd32d0df614f82dd025d0da94f2583a391"}
+{"ts":"2026-11-08T02:21:37.257Z","type":"run.record","run_id":"RUN-0001","result":"verified"}
+{"ts":"2026-11-08T02:22:48.866Z","type":"run.record","run_id":"RUN-0002","result":"verified"}
+{"ts":"2026-11-08T02:27:40.459Z","type":"question.create","question_id":"Q-0001","subjects":[{"id":"REQ-0001","rev":1,"sha256":"2bc07c3da72d314e5124b88c47776d1fed049c55b7ff90e241fd105f2c67facc"},{"id":"SPEC-0001","rev":2,"sha256":"6b28b2592848c70099d0799e34ae21fd32d0df614f82dd025d0da94f2583a391"}]}
+{"ts":"2026-11-08T02:28:02.696Z","type":"answer.save","question_id":"Q-0001","answer_id":"ANS-0001-1","stale":false}
+{"ts":"2026-11-08T02:28:21.308Z","type":"answer.ack","question_id":"Q-0001","answer_id":"ANS-0001-1"}
+{"ts":"2026-11-08T02:28:22.029Z","type":"apply.intent","txid":"bed7445173ac2c28","question_id":"Q-0001","answer_id":"ANS-0001-1","decision_id":"DEC-0001","subjects":[{"id":"REQ-0001","rev":1,"sha256":"2bc07c3da72d314e5124b88c47776d1fed049c55b7ff90e241fd105f2c67facc"},{"id":"SPEC-0001","rev":2,"sha256":"6b28b2592848c70099d0799e34ae21fd32d0df614f82dd025d0da94f2583a391"}],"decision":{"title":"対象版が変わった回答は保存して再確認対象に残し、自動では反映しない","body":"## 採用\n\n`hold`: 回答は保存するが、対象の `rev` か `sha256` が質問作成時と異なる場合は `stale` として未処理一覧に残し、`question_apply` は拒否する。\n\n## 理由\n\n- 回答はその時点の文書を読んで下した判断であり、文書が変われば別の対象に対する判断になる（REQ-0001 の根拠）。\n- 回答そのものは人の作業の成果であり、失わない。再確認で現在版を読み直せば再利用できる。\n\n## 棄却した代替案\n\n- `apply`（そのまま反映）: 古い版への判断を新しい版の判断として扱うことになり、理由と結論の対応が壊れる。\n- `discard`（破棄）: 人の回答を黙って捨てることになり、何を聞いて何が答えられたかの記録が残らない。\n","chosen":"hold","alternatives":["apply","discard"]}}
+{"ts":"2026-11-08T02:28:22.054Z","type":"record.write","id":"DEC-0001","path":"prepare/decisions/DEC-0001.md","rev":1,"sha256":"5f9580c6c28c0c2f5ef3775eafa86ccb7cfe6f5f084e2672c8f728fb80f2184d"}
+{"ts":"2026-11-08T02:28:22.070Z","type":"apply.commit","txid":"bed7445173ac2c28"}
+{"ts":"2026-11-08T02:35:20.248Z","type":"run.record","run_id":"RUN-0003","result":"verified"}
+{"ts":"2026-11-08T02:41:25.405Z","type":"run.record","run_id":"RUN-0004","result":"failed"}
+{"ts":"2026-11-08T02:46:58.116Z","type":"run.record","run_id":"RUN-0005","result":"verified"}
