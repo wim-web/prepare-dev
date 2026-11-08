@@ -1,0 +1,51 @@
+{
+  "id": "Q-0004",
+  "rev": 1,
+  "state": "cancelled",
+  "kind": "single_choice",
+  "created_at": "2026-11-08T12:04:49.632Z",
+  "created_by": {
+    "host": "cli"
+  },
+  "subjects": [
+    {
+      "id": "DES-0001",
+      "rev": 3,
+      "sha256": "98d5f8b68c5b76b4b35455f788d1437e5492c628acf06c453bdedaf22cb2b61a"
+    },
+    {
+      "id": "REQ-0002",
+      "rev": 2,
+      "sha256": "b439131a7fe06e5a770d11ccb47c713f8b33efcbf8eabb7003e5341aa4aa61ef"
+    },
+    {
+      "id": "REQ-0003",
+      "rev": 2,
+      "sha256": "70152a050f8ad5371dcc945a1b1e4f07ca8247b0714706c1db9da4d8f359f211"
+    }
+  ],
+  "prompt": "DES-0001 rev 3 決定点 1: 利用者単位の MCP 登録（claude mcp add -s user / codex mcp add）に書く入口コマンドの形。案内（init の setup_commands）とデーモンの起動は同じ一関数 entryCommand() で組み立てます。比較は DES-0001 §6 決定点 1。1b の可否はフェーズ 0（H1 の実測。GUI 起動ホストの PATH に node が無い状態を含む）で分かるので、回答はその結果を見てからでも構いません。",
+  "options": [
+    {
+      "key": "entry-abs-node",
+      "label": "1a: node の絶対パス（init を実行した process.execPath）＋ <道具>/node_modules/tsx/dist/cli.mjs ＋ 入口ファイル",
+      "recommended": true,
+      "reason": "ホスト→入口、入口→デーモンのどちらも PATH に依存しない。node_modules/.bin/tsx はシェルシムで node を PATH から探すため、GUI 起動のホストで失敗しうることを実物で確認した。欠点は Node の版を切り替えたら init の案内を再実行すること"
+    },
+    {
+      "key": "entry-path-node",
+      "label": "1b: PATH の node ＋ tsx の CLI ＋ 入口ファイル",
+      "reason": "Node の版切り替えに追従する。ホストの PATH に node が要るので、フェーズ 0 で GUI 起動ホストの PATH に node があると分かったときだけ選べる"
+    }
+  ],
+  "allow_free_text": true,
+  "ui": {
+    "spec": null
+  },
+  "answers": [],
+  "cancelled": {
+    "at": "2026-11-08T16:31:01.332Z",
+    "reason": "対象の記録がレビューの修正で改訂されたので、新しい版で質問し直した（回答はまだ無かった）",
+    "replaced_by": "Q-0016"
+  }
+}

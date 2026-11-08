@@ -1,4 +1,4 @@
-import type { DecisionFrontmatter, RunRecord, SpecFrontmatter, SubjectRef } from "@prepare-dev/core";
+import type { DecisionFrontmatter, ReviewFrontmatter, RunRecord, SpecFrontmatter, SubjectRef } from "@prepare-dev/core";
 import type { Questions } from "./questions.js";
 import type { Applicability, Runs } from "./runs.js";
 import type { RecordView, Store } from "./store.js";
@@ -52,11 +52,39 @@ export interface TraceQuestion {
   answers: Array<{ answer_id: string; stale: boolean; received: boolean; committed: boolean; closed: boolean; applied_as: string | null }>;
 }
 
+export interface TraceReview {
+  id: string;
+  title: string;
+  stage: string;
+  persona: string;
+  persona_version: string;
+  status: string;
+  subjects: SubjectRef[];
+  /** The reviewed versions are still the current ones. */
+  subjects_current: boolean;
+  findings: { total: number; unaddressed: number; blockers_open: number };
+}
+
+export interface TraceLink {
+  id: string;
+  kind: string;
+  title: string;
+  rev: number;
+  status: string;
+  /** The `links` key that connects the two records (derived_from, specifies, rationale_for, ...). */
+  via: string;
+  /** "out": the traced record links to `id`. "in": `id` links to the traced record. */
+  direction: "in" | "out";
+}
+
 export interface TraceView {
   record: { id: string; kind: string; title: string; rev: number; sha256: string; status: string };
   questions: TraceQuestion[];
   decisions: TraceDecision[];
   specs: TraceSpec[];
+  reviews: TraceReview[];
+  /** Records connected through `links`, in both directions (uncommitted decisions excluded). */
+  links: TraceLink[];
 }
 
 export class Trace {
@@ -92,6 +120,34 @@ export class Trace {
     };
   }
 
+  reviewView(r: RecordView): TraceReview {
+    const fm = r.frontmatter as unknown as ReviewFrontmatter;
+    const subjects = fm.subjects ?? [];
+    const findings = fm.findings ?? [];
+    return {
+      id: r.id,
+      title: fm.title,
+      stage: fm.stage,
+      persona: fm.reviewer.persona,
+      persona_version: fm.reviewer.persona_version,
+      status: fm.status,
+      subjects,
+      subjects_current: this.questions.checkSubjects(subjects).length === 0,
+      findings: {
+        total: findings.length,
+        unaddressed: findings.filter((f) => f.actual === "unaddressed").length,
+        blockers_open: findings.filter((f) => f.actual === "unaddressed" && f.severity === "blocker").length,
+      },
+    };
+  }
+
+  reviewsFor(id: string): TraceReview[] {
+    return this.store
+      .listRecords("review")
+      .filter((r) => r.id === id || ((r.frontmatter as unknown as ReviewFrontmatter).subjects ?? []).some((s) => s.id === id))
+      .map((r) => this.reviewView(r));
+  }
+
   runView(run: RunRecord, claimId: string): TraceRun {
     const app = this.runs.applicability(run);
     const claim = run.claims.find((c) => c.claim === claimId);
@@ -120,6 +176,34 @@ export class Trace {
       return { id: c.id, statement: c.statement, requirement: c.requirement ?? null, runs, current };
     });
     return { id: spec.id, title: fm.title, rev: spec.rev, status: fm.status, claims };
+  }
+
+  linksFor(rec: RecordView): TraceLink[] {
+    const all = this.store.listRecords().filter((r) => r.kind !== "decision" || this.isPublic(r));
+    const byId = new Map(all.map((r) => [r.id, r]));
+    const view = (r: RecordView, via: string, direction: TraceLink["direction"]): TraceLink => ({
+      id: r.id,
+      kind: r.kind,
+      title: r.frontmatter.title,
+      rev: r.rev,
+      status: r.frontmatter.status,
+      via,
+      direction,
+    });
+    const out: TraceLink[] = [];
+    for (const [via, targets] of Object.entries(rec.frontmatter.links ?? {})) {
+      for (const t of targets) {
+        const r = byId.get(t);
+        if (r && r.id !== rec.id) out.push(view(r, via, "out"));
+      }
+    }
+    for (const r of all) {
+      if (r.id === rec.id) continue;
+      for (const [via, targets] of Object.entries(r.frontmatter.links ?? {})) {
+        if (targets.includes(rec.id)) out.push(view(r, via, "in"));
+      }
+    }
+    return out;
   }
 
   for(id: string): TraceView {
@@ -166,6 +250,8 @@ export class Trace {
       questions,
       decisions,
       specs,
+      reviews: this.reviewsFor(id),
+      links: this.linksFor(rec),
     };
   }
 }

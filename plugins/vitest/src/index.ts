@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import ts from "typescript";
 import {
   type Capabilities,
   type DetectResult,
@@ -72,8 +73,6 @@ function workspacePackages(projectDir: string): Map<string, string> {
   return out;
 }
 
-const IMPORT_RE = /(?:^|\n)\s*(?:import|export)\b[^'"\n]*?\bfrom\s*["']([^"']+)["']|\bimport\s*\(\s*["']([^"']+)["']\s*\)|(?:^|\n)\s*import\s*["']([^"']+)["']/g;
-
 function resolveTs(base: string): string | null {
   const candidates = [base, base.replace(/\.js$/, ".ts"), base.replace(/\.js$/, ".tsx"), `${base}.ts`, `${base}.tsx`, path.join(base, "index.ts")];
   for (const c of candidates) if (fs.existsSync(c) && fs.statSync(c).isFile()) return c;
@@ -82,11 +81,20 @@ function resolveTs(base: string): string | null {
 
 function importsOf(file: string, workspace: Map<string, string>): string[] {
   if (!/\.(ts|tsx|mts|js|mjs)$/.test(file)) return [];
-  const text = fs.readFileSync(file, "utf8");
+  const source = ts.createSourceFile(file, fs.readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
+  const specifiers = new Set<string>();
+  const addSpecifier = (node: ts.Node | undefined): void => {
+    if (node && ts.isStringLiteralLike(node)) specifiers.add(node.text);
+  };
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) addSpecifier(node.moduleSpecifier);
+    if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) addSpecifier(node.moduleReference.expression);
+    if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === "require"))) addSpecifier(node.arguments[0]);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
   const out: string[] = [];
-  for (const m of text.matchAll(IMPORT_RE)) {
-    const spec = m[1] ?? m[2] ?? m[3];
-    if (!spec) continue;
+  for (const spec of specifiers) {
     let abs: string | null = null;
     if (spec.startsWith(".")) abs = resolveTs(path.resolve(path.dirname(file), spec));
     else if (workspace.has(spec)) abs = workspace.get(spec)!;
@@ -132,28 +140,50 @@ export const vitestPlugin: VerificationPlugin = {
     for (const t of job.targets) targets.push({ path: t, sha256: await sha256File(path.join(job.root, t)), role: "target" });
     const files: InputFile[] = [];
     const seen = new Set<string>(job.targets.map((t) => path.resolve(job.root, t)));
-    // Transitive import closure of the test files (relative imports and workspace packages),
-    // so that changing the implementation under test invalidates the evidence.
     const workspace = workspacePackages(projectDir);
     const queue = [...seen];
-    while (queue.length) {
-      const file = queue.shift()!;
-      for (const dep of importsOf(file, workspace)) {
-        if (seen.has(dep)) continue;
-        seen.add(dep);
-        queue.push(dep);
-        files.push({ path: path.relative(job.root, dep), sha256: await sha256File(dep), role: "import" });
+    const add = async (file: string, role: InputFile["role"]): Promise<void> => {
+      const abs = path.resolve(file);
+      if (seen.has(abs)) return;
+      seen.add(abs);
+      queue.push(abs);
+      files.push({ path: path.relative(job.root, abs), sha256: await sha256File(abs), role });
+    };
+    for (const f of c.impl_files) await add(path.resolve(job.root, f), "implementation");
+    for (const name of ["vitest.config.ts", "vitest.config.js", "vitest.config.mts"]) {
+      const abs = path.join(projectDir, name);
+      if (fs.existsSync(abs)) await add(abs, "config");
+    }
+    // Resolution reads workspace manifests even when an entry's source is unchanged.
+    for (const group of ["packages", "plugins", "apps"]) {
+      const dir = path.join(projectDir, group);
+      if (!fs.existsSync(dir)) continue;
+      for (const name of fs.readdirSync(dir)) {
+        const manifest = path.join(dir, name, "package.json");
+        if (fs.existsSync(manifest)) await add(manifest, "config");
       }
     }
-    for (const f of c.impl_files) {
-      const abs = path.resolve(job.root, f);
-      if (seen.has(abs)) continue;
-      seen.add(abs);
-      files.push({ path: f, sha256: await sha256File(abs), role: "implementation" });
-    }
-    for (const name of ["vitest.config.ts", "vitest.config.js", "vitest.config.mts"]) {
-      const abs = path.join(job.root, c.project_dir, name);
-      if (fs.existsSync(abs)) files.push({ path: path.relative(job.root, abs), sha256: await sha256File(abs), role: "config" });
+    const metadataDirs = new Set<string>();
+    const addMetadata = async (from: string): Promise<void> => {
+      for (let dir = path.resolve(from); ; dir = path.dirname(dir)) {
+        const relative = path.relative(path.resolve(job.root), dir);
+        if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) break;
+        if (metadataDirs.has(dir)) break;
+        metadataDirs.add(dir);
+        for (const name of ["package.json", "pnpm-lock.yaml", "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "bun.lock", "bun.lockb", "pnpm-workspace.yaml", ".npmrc", "tsconfig.json"]) {
+          const abs = path.join(dir, name);
+          if (fs.existsSync(abs)) await add(abs, "config");
+        }
+        if (!relative) break;
+      }
+    };
+    await addMetadata(projectDir);
+    while (queue.length) {
+      const file = queue.shift()!;
+      await addMetadata(path.dirname(file));
+      for (const dep of importsOf(file, workspace)) {
+        await add(dep, "import");
+      }
     }
     return { targets, files };
   },

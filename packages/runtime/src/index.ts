@@ -6,4 +6,4 @@ export * from "./trace.js";
 export * from "./status.js";
 export * from "./runtime.js";
 export * from "./server.js";
-export * from "./ui-spec.js";
+export * from "./bundle.js";

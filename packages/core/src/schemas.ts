@@ -70,12 +70,77 @@ export const SpecFrontmatter = BaseFrontmatter.extend({
 });
 export type SpecFrontmatter = z.infer<typeof SpecFrontmatter>;
 
+export const CoverageState = z.enum(["decided", "hypothesis", "unverified", "out_of_scope"]);
+export type CoverageState = z.infer<typeof CoverageState>;
+
 export const RequirementFrontmatter = BaseFrontmatter.extend({
   kind: z.literal("requirement"),
   priority: z.enum(["must", "should", "could", "wont"]).default("must"),
   acceptance: z.array(z.string()).default([]),
-  coverage: z.record(z.string(), z.enum(["decided", "hypothesis", "unverified", "out_of_scope"])).default({}),
+  coverage: z.record(z.string(), CoverageState).default({}),
 });
+export type RequirementFrontmatter = z.infer<typeof RequirementFrontmatter>;
+
+export const DiscoveryFrontmatter = BaseFrontmatter.extend({
+  kind: z.literal("discovery"),
+  problem: z.string().default(""),
+  stakeholders: z.array(z.string()).default([]),
+  hypotheses: z.array(z.object({ id: z.string(), statement: z.string(), evidence: z.string().default(""), state: CoverageState.default("hypothesis") })).default([]),
+  non_goals: z.array(z.string()).default([]),
+  coverage: z.record(z.string(), CoverageState).default({}),
+});
+export type DiscoveryFrontmatter = z.infer<typeof DiscoveryFrontmatter>;
+
+export const DesignFrontmatter = BaseFrontmatter.extend({
+  kind: z.literal("design"),
+  alternatives: z.array(z.object({ key: z.string(), title: z.string(), status: z.enum(["chosen", "rejected", "open"]).default("open"), reason: z.string().default("") })).default([]),
+  chosen: z.string().nullable().default(null),
+  tradeoffs: z.array(z.string()).default([]),
+  /** New decisions this design introduces that no DIS/REQ/DEC covers (architecture, external interface, dependency). Must be reported, not hidden. */
+  new_decisions: z.array(z.string()).default([]),
+  coverage: z.record(z.string(), CoverageState).default({}),
+});
+export type DesignFrontmatter = z.infer<typeof DesignFrontmatter>;
+
+export const FindingSeverity = z.enum(["blocker", "major", "nit"]);
+export const FindingProposed = z.enum(["fix", "contest", "escalate", "decline"]);
+export const FindingActual = z.enum(["unaddressed", "fixed", "contested_accepted", "escalated", "declined", "accepted_risk"]);
+
+export const Finding = z.object({
+  id: z.string(),
+  severity: FindingSeverity,
+  scope: z.string(),
+  summary: z.string(),
+  rationale: z.string().default(""),
+  /** What the reviewing/resolving agent proposed. A proposal is not a completion. */
+  proposed: FindingProposed,
+  proposed_note: z.string().default(""),
+  /** What actually happened. Only a human decision (DEC) can turn a finding into accepted_risk or contested_accepted. */
+  actual: FindingActual.default("unaddressed"),
+  actual_ref: z.string().nullable().default(null),
+});
+export type Finding = z.infer<typeof Finding>;
+
+export const ReviewStage = z.enum(["zoom_out", "comprehension", "design_critique", "implementation_readiness", "custom"]);
+
+export const ReviewFrontmatter = BaseFrontmatter.extend({
+  kind: z.literal("review"),
+  stage: ReviewStage,
+  /** Records under review. */
+  subjects: z.array(SubjectRef),
+  /** Everything the reviewer was given (subjects plus references), pinned. */
+  inputs: z.array(SubjectRef).default([]),
+  reviewer: z.object({
+    persona: z.string(),
+    persona_version: z.string(),
+    host: z.string().default("unknown"),
+    context: z.enum(["fresh", "shared"]).default("fresh"),
+  }),
+  /** Comprehension stage: the reviewer's own-words restatement; a wrong paraphrase is a finding. */
+  paraphrase: z.string().nullable().default(null),
+  findings: z.array(Finding).default([]),
+});
+export type ReviewFrontmatter = z.infer<typeof ReviewFrontmatter>;
 
 // ---------- questions and answers ----------
 
@@ -118,8 +183,11 @@ export const Question = z.object({
   prompt: z.string(),
   options: z.array(QuestionOption).default([]),
   allow_free_text: z.boolean().default(true),
-  ui: z.object({ spec: z.unknown().nullable() }).default({ spec: null }),
+  /** Legacy display data is preserved on old questions, but never rendered. */
+  ui: z.unknown().optional(),
   answers: z.array(Answer).default([]),
+  /** Set when the question was withdrawn before any answer (e.g. replaced by a question at newer subject versions). */
+  cancelled: z.object({ at: z.string(), reason: z.string(), replaced_by: z.string().nullable().default(null) }).nullable().default(null),
 });
 export type Question = z.infer<typeof Question>;
 
@@ -219,6 +287,7 @@ export const Event = z.discriminatedUnion("type", [
   z.object({ ...base, type: z.literal("answer.save"), question_id: z.string(), answer_id: z.string(), stale: z.boolean() }),
   z.object({ ...base, type: z.literal("answer.ack"), question_id: z.string(), answer_id: z.string() }),
   z.object({ ...base, type: z.literal("answer.close"), question_id: z.string(), answer_id: z.string(), reason: z.string() }),
+  z.object({ ...base, type: z.literal("question.cancel"), question_id: z.string(), reason: z.string(), replaced_by: z.string().nullable() }),
   z.object({
     ...base,
     type: z.literal("apply.intent"),
@@ -238,6 +307,9 @@ export type Event = z.infer<typeof Event>;
 export type EventOf<T extends Event["type"]> = Extract<Event, { type: T }>;
 
 // ---------- config ----------
+
+export const ToolIdentity = z.object({ version: z.string(), build: z.string(), root: z.string(), mode: z.enum(["source", "package"]) });
+export type ToolIdentity = z.infer<typeof ToolIdentity>;
 
 export const ProjectConfig = z.object({
   records_dir: z.string().default("prepare"),

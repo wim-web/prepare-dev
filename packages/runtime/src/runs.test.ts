@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { RunRecord } from "@prepare-dev/core";
+import type { RunRecord, VerificationPlugin } from "@prepare-dev/core";
 import { Runtime } from "./runtime.js";
 
 let root: string;
@@ -38,7 +38,33 @@ function fakeRun(rt: Runtime, specId: string, reqId: string, inputPath: string):
 }
 
 describe("evidence applicability (M1-13)", () => {
-  it("a run stops applying when the spec, the requirement, or an input file changes, and the trace shows no current evidence", () => {
+  it("[V2] reserves distinct run ids before asynchronous verification finishes and after restart", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const plugin: VerificationPlugin = {
+      name: "paused", version: "1",
+      capabilities: () => ({ languages: [], methods: ["test"], properties: [], requires: { tools: [] } }),
+      guidance: () => ({ docs: [], templates: [] }),
+      detect: async () => { await gate; return { available: false, versions: {}, reason: "test probe complete" }; },
+      inputs: async () => ({ targets: [], files: [] }),
+      run: async () => { throw new Error("unavailable tool must not run"); },
+      parse: () => { throw new Error("unavailable tool has no output"); },
+    };
+    const rt = Runtime.open(root, { plugins: [plugin] });
+    const spec = rt.store.createRecord("spec", { title: "S", claims: [{ id: "C", statement: "C", native: [{ plugin: "paused", ref: "C" }] }] }, "S");
+    const input = { plugin: "paused", claims: [{ spec: spec.id, claim: "C" }] };
+    const first = rt.runs.start(input);
+    const second = rt.runs.start(input);
+    expect(first.run_id).not.toBe(second.run_id);
+    expect(rt.store.listRunIds()).toEqual([]);
+    const reopened = Runtime.open(root);
+    expect([first.run_id, second.run_id]).not.toContain(reopened.store.allocateId("run"));
+    release();
+    await Promise.all([rt.runs.wait(first.run_id, 5_000), rt.runs.wait(second.run_id, 5_000)]);
+    expect(rt.store.listRunIds()).toEqual([first.run_id, second.run_id]);
+  });
+
+  it("[V1] a run stops applying when the spec, the requirement, or an input file changes, and the trace shows no current evidence", () => {
     const rt = Runtime.open(root);
     const req = rt.store.createRecord("requirement", { title: "R" }, "r\n");
     const spec = rt.store.createRecord(
@@ -79,5 +105,12 @@ describe("evidence applicability (M1-13)", () => {
     expect(rt.runs.applicability(run3).mismatches.map((m) => m.kind)).toEqual(["target"]);
     fs.writeFileSync(path.join(root, input), "v1");
     expect(rt.runs.applicability(run3).applicable).toBe(true);
+    const metadata = "pnpm-lock.yaml";
+    fs.writeFileSync(path.join(root, metadata), "lock-v1");
+    run3.inputs.files.push({ path: metadata, sha256: rt.store.fileVersion(metadata)!, role: "config" });
+    fs.writeFileSync(path.join(root, metadata), "lock-v2");
+    expect(rt.runs.applicability(run3).mismatches).toEqual([expect.objectContaining({ kind: "input", ref: metadata })]);
+    fs.unlinkSync(path.join(root, metadata));
+    expect(rt.runs.applicability(run3).mismatches).toEqual([expect.objectContaining({ kind: "input", ref: metadata, current: null })]);
   });
 });

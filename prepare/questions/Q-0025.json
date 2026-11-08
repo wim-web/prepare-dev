@@ -1,0 +1,51 @@
+{
+  "id": "Q-0025",
+  "rev": 1,
+  "state": "cancelled",
+  "kind": "single_choice",
+  "created_at": "2026-11-08T16:31:26.249Z",
+  "created_by": {
+    "host": "cli"
+  },
+  "subjects": [
+    {
+      "id": "DES-0001",
+      "rev": 5,
+      "sha256": "739a89c10ba9326c5c0163f71c22085036aaf4b43b278413380000e1c4dd5368"
+    },
+    {
+      "id": "SPEC-0002",
+      "rev": 5,
+      "sha256": "a1b098357c08abaff3e7c2f4e133e0de47e6ae1b40f3d7a1752f4bdb9a30b9e8"
+    }
+  ],
+  "prompt": "DES-0001 と SPEC-0002 のレビューの進め方。人の指示（DEC-0002、DEC-0003）で、prepare-review の上限（工程ごとに四 round）まで続けた。round ごとの新しい Major（重複を除く）は、DES-0001 が 13 → 2 → 7 → 3、SPEC-0002 が 15 → 5 → 8 → 5 で、収束はしていない。一方で中身は、設計の誤り（lock の引き取りの競合、init と停止が二つ目の書き手になる経路）から、細部（停止の API、状態探索の規模、生存の判定、worktree の境界）へ移った。round 4 の指摘はすべて rev 5 で直したが、rev 5 はどのレビュー役も読んでいない。round 4 のレビュー役の一人は SPEC-0002 の遷移表を試作して状態探索をかけ、書き手の境界を正しく読めば性質が成り立つことを確かめた（REV-0033）。未対処の指摘は無い。費用の目安: レビュー役一回あたり約 20 万 token。",
+  "options": [
+    {
+      "key": "review-accept",
+      "label": "受容して進む: rev 5 を読み直さずに、フェーズ 0（探査）と prepare-verify（実装とテスト）へ進む",
+      "recommended": true,
+      "reason": "残る懸念の多くは、実装と、状態探索 C27・停止の C30 などのテストで機械的に確かめられる種類になった。設計の誤りは round 2〜3 でほぼ出尽くし、round 4 の Major は rev 4 の修正の細部だった。実装で見つかった誤りは prepare-verify の手順で設計か仕様へ戻す"
+    },
+    {
+      "key": "review-more",
+      "label": "続ける: 上限を超えて round 5 を行う（両方の記録に三観点ずつ、六回、約 120 万 token）",
+      "reason": "rev 5 の修正（停止の API と上限、生存の判定、親へたどる境界、作成の切り替え、入口の起動し直し）は誰も読んでいない。round 3 と 4 はどちらも、直前の修正が新しい Major を持ち込んでいた"
+    },
+    {
+      "key": "review-back",
+      "label": "前の工程へ戻る: 停止、再起動の後の残骸、worktree の扱いを要求（REQ-0003 など）に書き足してから、設計と仕様を見直す",
+      "reason": "要求に書かれていない振る舞い（停止中の接続、再起動の後に残った daemon.json、対象の中の worktree）が設計の段階で次々に決まっている。人が決めるべき振る舞いが混ざっているなら、先に要求にする"
+    }
+  ],
+  "allow_free_text": true,
+  "ui": {
+    "spec": null
+  },
+  "answers": [],
+  "cancelled": {
+    "at": "2026-11-08T17:03:48.066Z",
+    "reason": "Q-0002 の回答（CLI として配布し skill から CLI を実行、MCP 登録を前提にしない）で前提が変わったため取り下げる。要求と設計を整理し直してから、必要なものだけを分かる形で聞き直す",
+    "replaced_by": null
+  }
+}

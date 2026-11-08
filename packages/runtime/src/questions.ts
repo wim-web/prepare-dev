@@ -20,13 +20,17 @@ export interface ApplyHooks {
   afterStage?: (stage: ApplyStage) => void;
 }
 
+export type RecoveryStage = "abort" | "retract_decision" | "retract_question";
+export interface RecoveryHooks {
+  afterStage?: (stage: RecoveryStage) => void;
+}
+
 export interface CreateQuestionInput {
   kind: QuestionKind;
   prompt: string;
   subjects: string[];
   options?: QuestionOption[];
   allow_free_text?: boolean;
-  ui?: unknown;
   created_by?: { host?: string; session?: string };
 }
 
@@ -68,11 +72,22 @@ export class Questions {
   // ---------- read ----------
 
   list(): Question[] {
-    return this.store.listQuestionIds().map((id) => this.store.readQuestion(id));
+    return this.store.listQuestionIds().map((id) => this.read(id));
   }
 
   read(id: string): Question {
-    return this.store.readQuestion(id);
+    return this.publicView(this.store.readQuestion(id));
+  }
+
+  private publicView(q: Question): Question {
+    return {
+      ...q,
+      state: this.deriveState(q),
+      answers: q.answers.map((a) => {
+        const committed = this.store.committedIntentFor(a.answer_id);
+        return { ...a, applied_as: committed ? { decision_id: committed.decision_id, txid: committed.txid } : null };
+      }),
+    };
   }
 
   isCommitted(answerIdValue: string): boolean {
@@ -126,7 +141,7 @@ export class Questions {
   private write(q: Question): void {
     q.state = this.deriveState(q);
     this.store.writeQuestion(q);
-    this.store.emitter.emit("question", q);
+    this.store.emitter.emit("question", this.publicView(q));
   }
 
   snapshot(ids: string[]): SubjectRef[] {
@@ -169,8 +184,8 @@ export class Questions {
       prompt: input.prompt,
       options: input.options ?? [],
       allow_free_text: input.allow_free_text ?? true,
-      ui: { spec: input.ui ?? null },
       answers: [],
+      cancelled: null,
     };
     this.write(q);
     this.store.appendEvent<"question.create">({ type: "question.create", question_id: id, subjects });
@@ -180,11 +195,13 @@ export class Questions {
   answer(questionId: string, input: AnswerInput): { question: Question; answer: Answer } {
     this.store.assertAlive();
     this.assertQuiescent();
-    const q = this.read(questionId);
+    const q = this.store.readQuestion(questionId);
     if (q.state === "cancelled") throw new RuntimeError("closed", `question ${questionId} is cancelled`);
-    if (q.kind !== "free_text" && (!input.choice || input.choice.length === 0) && !input.text) {
+    if ((!input.choice || input.choice.length === 0) && !input.text?.trim()) {
       throw new RuntimeError("invalid", "answer needs a choice or text");
     }
+    if ((q.kind === "single_choice" || q.kind === "review") && (input.choice?.length ?? 0) > 1) throw new RuntimeError("invalid", "choose only one option");
+    if (q.kind !== "free_text" && !q.allow_free_text && input.text?.trim()) throw new RuntimeError("invalid", "free text is not allowed for this question");
     if (input.choice) {
       const keys = new Set(q.options.map((o) => o.key));
       for (const c of input.choice) if (!keys.has(c)) throw new RuntimeError("invalid", `unknown option ${c}`);
@@ -245,7 +262,8 @@ export class Questions {
 
   ack(questionId: string, answerIdValue: string): Answer {
     this.store.assertAlive();
-    const q = this.read(questionId);
+    this.assertQuiescent();
+    const q = this.store.readQuestion(questionId);
     const a = this.findAnswer(q, answerIdValue);
     if (!a.received_at) {
       a.received_at = nowIso();
@@ -259,7 +277,7 @@ export class Questions {
     this.store.assertAlive();
     this.assertQuiescent();
     if (!reason.trim()) throw new RuntimeError("invalid", "close needs a reason");
-    const q = this.read(questionId);
+    const q = this.store.readQuestion(questionId);
     const a = this.findAnswer(q, answerIdValue);
     if (this.isCommitted(a.answer_id)) throw new RuntimeError("conflict", `answer ${a.answer_id} is already applied`);
     if (!a.closed) {
@@ -270,15 +288,53 @@ export class Questions {
     return a;
   }
 
+  /**
+   * Withdraw a question that nobody has answered yet, e.g. because its subjects were revised and it is
+   * asked again at the new versions (`replacedBy`). A question with answers is handled per answer
+   * (apply or close) instead, so no answer is ever dropped silently. Idempotent.
+   */
+  cancel(questionId: string, reason: string, replacedBy: string | null = null): Question {
+    this.store.assertAlive();
+    this.assertQuiescent();
+    if (!reason.trim()) throw new RuntimeError("invalid", "cancel needs a reason");
+    const q = this.store.readQuestion(questionId);
+    if (q.cancelled) return q;
+    if (q.answers.length > 0) {
+      throw new RuntimeError("conflict", `question ${q.id} already has answers; apply or close each answer instead`, {
+        answers: q.answers.map((a) => a.answer_id),
+      });
+    }
+    if (replacedBy !== null) {
+      if (replacedBy === q.id) throw new RuntimeError("invalid", "a question cannot replace itself");
+      this.read(replacedBy);
+    }
+    q.state = "cancelled";
+    q.cancelled = { at: nowIso(), reason, replaced_by: replacedBy };
+    this.write(q);
+    this.store.appendEvent<"question.cancel">({ type: "question.cancel", question_id: q.id, reason, replaced_by: replacedBy });
+    return q;
+  }
+
   // ---------- apply (SPEC-0001 §2.1) ----------
 
   private assertQuiescent(): void {
     const inflight = this.store.inflightIntents();
-    if (inflight.length) {
+    if (this.recoveryPending()) {
       throw new RuntimeError("inflight", "an apply transaction is in flight; recovery must run first", {
         txids: inflight.map((i) => i.txid),
       });
     }
+  }
+
+  recoveryPending(): boolean {
+    if (this.store.inflightIntents().length) return true;
+    const aborted = this.store.abortedTxids();
+    return this.store.intents().some((i) => {
+      if (!aborted.has(i.txid)) return false;
+      if (this.store.hasRecord(i.decision_id) && this.store.readRecord(i.decision_id).frontmatter.txid === i.txid) return true;
+      const a = this.store.readQuestion(i.question_id).answers.find((a) => a.answer_id === i.answer_id);
+      return a !== undefined && (a.applied_as?.txid === i.txid || !a.stale);
+    });
   }
 
   private findAnswer(q: Question, answerIdValue: string): Answer {
@@ -299,7 +355,7 @@ export class Questions {
   ): ApplyResult {
     this.store.assertAlive();
     this.assertQuiescent();
-    const q = this.read(questionId);
+    const q = this.store.readQuestion(questionId);
     const a = this.findAnswer(q, answerIdValue);
     if (input.expected_question_rev !== undefined && input.expected_question_rev !== q.rev) {
       throw new RuntimeError("question_rev", `question ${q.id} is at rev ${q.rev}, expected ${input.expected_question_rev}`);
@@ -334,7 +390,7 @@ export class Questions {
     return this.rollForward(intent, hooks);
   }
 
-  private afterStage(hooks: ApplyHooks | undefined, stage: ApplyStage): void {
+  private afterStage<Stage extends string>(hooks: { afterStage?: (stage: Stage) => void } | undefined, stage: Stage): void {
     try {
       hooks?.afterStage?.(stage);
     } catch (e) {
@@ -367,7 +423,7 @@ export class Questions {
     }
     this.afterStage(hooks, "decision");
     // stage c: applied_as on the answer (provisional until commit)
-    const q = this.read(intent.question_id);
+    const q = this.store.readQuestion(intent.question_id);
     const a = this.findAnswer(q, intent.answer_id);
     if (!a.applied_as || a.applied_as.txid !== intent.txid) {
       a.applied_as = { decision_id: intent.decision_id, txid: intent.txid };
@@ -379,14 +435,14 @@ export class Questions {
       this.store.appendEvent<"apply.commit">({ type: "apply.commit", txid: intent.txid });
     }
     this.afterStage(hooks, "commit");
-    const q2 = this.read(intent.question_id);
+    const q2 = this.store.readQuestion(intent.question_id);
     this.write(q2); // refresh derived state
     return { status: "applied", decision_id: intent.decision_id, txid: intent.txid };
   }
 
   // ---------- recovery (SPEC-0001 §2.2) ----------
 
-  recover(): RecoveryReport {
+  recover(hooks?: RecoveryHooks): RecoveryReport {
     this.store.assertAlive();
     const report: RecoveryReport = { recovered: [], retracted: [] };
     for (const intent of this.store.inflightIntents()) {
@@ -400,7 +456,8 @@ export class Questions {
           txid: intent.txid,
           reason: `subjects changed: ${mismatches.map((m) => m.id).join(", ")}`,
         });
-        this.retract(intent);
+        this.afterStage(hooks, "abort");
+        this.retract(intent, hooks);
         report.recovered.push({
           txid: intent.txid,
           answer_id: intent.answer_id,
@@ -416,7 +473,7 @@ export class Questions {
     const committed = this.store.committedTxids();
     for (const intent of this.store.intents()) {
       if (aborted.has(intent.txid)) {
-        if (this.retract(intent)) report.retracted.push(intent.txid);
+        if (this.retract(intent, hooks)) report.retracted.push(intent.txid);
       } else if (committed.has(intent.txid)) {
         this.ensureCommittedFiles(intent);
       }
@@ -425,18 +482,19 @@ export class Questions {
   }
 
   /** Remove provisional files of an aborted transaction. Returns true if anything was removed. */
-  private retract(intent: EventOf<"apply.intent">): boolean {
+  private retract(intent: EventOf<"apply.intent">, hooks?: RecoveryHooks): boolean {
     let changed = false;
     if (this.store.hasRecord(intent.decision_id)) {
       const d = this.store.readRecord(intent.decision_id);
       if (d.frontmatter.txid === intent.txid) {
         this.store.removeRecord(intent.decision_id, `aborted transaction ${intent.txid}`);
+        this.afterStage(hooks, "retract_decision");
         changed = true;
       }
     }
     let q: Question;
     try {
-      q = this.read(intent.question_id);
+      q = this.store.readQuestion(intent.question_id);
     } catch {
       return changed;
     }
@@ -445,6 +503,7 @@ export class Questions {
       if (a.applied_as && a.applied_as.txid === intent.txid) a.applied_as = null;
       a.stale = true;
       this.write(q);
+      this.afterStage(hooks, "retract_question");
       changed = true;
     }
     return changed;
@@ -456,7 +515,7 @@ export class Questions {
       this.rollForward(intent);
       return;
     }
-    const q = this.read(intent.question_id);
+    const q = this.store.readQuestion(intent.question_id);
     const a = q.answers.find((x) => x.answer_id === intent.answer_id);
     if (a && (!a.applied_as || a.applied_as.txid !== intent.txid)) {
       a.applied_as = { decision_id: intent.decision_id, txid: intent.txid };

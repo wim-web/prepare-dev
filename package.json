@@ -10,12 +10,17 @@
     "typecheck": "tsc -b tsconfig.json",
     "test": "vitest run",
     "ui:build": "pnpm --filter @prepare-dev/ui build",
-    "cli": "tsx packages/cli/src/index.ts"
+    "cli": "tsx packages/cli/src/index.ts",
+    "build": "pnpm ui:build && node scripts/build.mjs",
+    "test:package": "pnpm run package && PREPARE_DEV_PACKAGE_TESTS=1 vitest run packages/cli/src/distribution.test.ts",
+    "package": "pnpm build && node scripts/pack.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
+    "esbuild": "0.28.2",
     "tsx": "^4.23.15",
     "typescript": "^5.9.0",
     "vitest": "^5.1.0"
-  }
+  },
+  "version": "0.1.0"
 }

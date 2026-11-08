@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseMarkdown, serializeMarkdown } from "@prepare-dev/core";
 import { Runtime } from "./runtime.js";
 import { RuntimeError, SimulatedCrash } from "./errors.js";
+import { Server } from "./server.js";
 import type { ApplyStage } from "./questions.js";
 
 let root: string;
@@ -57,6 +58,55 @@ afterEach(() => {
 });
 
 describe("questions and apply (SPEC-0001)", () => {
+  it("[U2] accepts question data, preserves legacy display fields, and rejects obsolete UI input and invalid answers", async () => {
+    const rt = open();
+    const req = seed(rt);
+    const q = ask(rt, req);
+    expect(q).not.toHaveProperty("ui");
+    rt.store.writeQuestion({ ...q, ui: { spec: { old: true } } });
+    expect(rt.questions.read(q.id).ui).toEqual({ spec: { old: true } });
+    expect(() => rt.questions.answer(q.id, { choice: ["hold", "apply"] })).toThrowError(/only one/);
+    const free = rt.questions.create({ kind: "free_text", prompt: "条件を教えてください", subjects: [req] });
+    expect(() => rt.questions.answer(free.id, { text: "  " })).toThrowError(/choice or text/);
+    expect(rt.questions.answer(free.id, { text: "待ち時間を優先" }).answer.text).toBe("待ち時間を優先");
+    const server = new Server(rt);
+    const info = await server.listen();
+    try {
+      expect((await fetch(`${info.url}/api/questions/${q.id}/ui`)).status).toBe(404);
+      expect((await fetch(`${info.url}/api/questions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: "free_text", prompt: "Q", subjects: [req], ui: {} }) })).status).toBe(400);
+      expect((await fetch(`${info.url}/api/status`, { headers: { origin: "https://example.invalid" } })).status).toBe(403);
+    } finally { await server.close(); }
+  });
+
+  it("[C1][C3][C6] public reads and notifications never expose a provisional application", () => {
+    const rt = open();
+    const req = seed(rt);
+    const q = ask(rt, req);
+    const first = rt.questions.answer(q.id, { choice: ["hold"] }).answer;
+    rt.questions.apply(q.id, first.answer_id, { decision });
+    const second = rt.questions.answer(q.id, { choice: ["hold"] }).answer;
+    const seen: Array<{ answer: string; applied: boolean; committed: boolean }> = [];
+    rt.store.emitter.on("question", (event: typeof q) => {
+      for (const a of event.answers) seen.push({ answer: a.answer_id, applied: a.applied_as !== null, committed: rt.questions.isCommitted(a.answer_id) });
+    });
+    expect(() => rt.questions.apply(q.id, second.answer_id, { decision }, {
+      afterStage(stage) {
+        if (stage !== "question") return;
+        expect(rt.store.readQuestion(q.id).answers[1]!.applied_as).not.toBeNull();
+        expect(rt.questions.read(q.id).answers[1]!.applied_as).toBeNull();
+        expect(rt.questions.list()[0]!.answers[1]!.applied_as).toBeNull();
+        expect(rt.questions.pendingFor(q.id)[0]!.applied_as).toBeNull();
+        throw new SimulatedCrash(stage);
+      },
+    })).toThrowError(SimulatedCrash);
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((a) => a.applied === a.committed)).toBe(true);
+    expect(seen.find((a) => a.answer === first.answer_id)?.applied).toBe(true);
+    expect(seen.find((a) => a.answer === second.answer_id)?.applied).toBe(false);
+    const restarted = open();
+    expect(restarted.questions.read(q.id).answers.every((a) => a.applied_as !== null)).toBe(true);
+  });
+
   it("[C1] M1-1/2/7: create, answer, wait, apply once, trace", async () => {
     const rt = open();
     const req = seed(rt);

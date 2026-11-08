@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Spec } from "@json-render/core";
 import { api, errorMessage, type Answer, type PendingAnswer, type Question } from "./api";
-import { QuestionView } from "./QuestionView";
+import { QuestionView, questionTitle, Markdown } from "./QuestionView";
 import { SubjectRecords } from "./SubjectRecords";
 
 const KIND_LABEL: Record<string, string> = {
@@ -23,7 +22,7 @@ function fmtTime(iso: string): string {
 
 function answerStatus(a: Answer): string {
   if (a.closed) return `クローズ (${a.closed.reason})`;
-  if (a.applied_as) return `反映済み → ${a.applied_as.decision_id}`;
+  if (a.applied_as) return "判断に反映済み";
   if (a.received_at) return "エージェントが受領";
   return "エージェント処理待ち";
 }
@@ -32,43 +31,71 @@ export function App() {
   const [questions, setQuestions] = useState<Question[] | null>(null);
   const [pending, setPending] = useState<PendingAnswer[]>([]);
   const [listError, setListError] = useState<string | null>(null);
+  const [pendingError, setPendingError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
 
   const [selectedId, setSelectedId] = useState<string | null>(() => idFromPath(window.location.pathname));
-  const [selected, setSelected] = useState<{ question: Question; spec: Spec } | null>(null);
+  const [selected, setSelected] = useState<{ question: Question } | null>(null);
   const [selectError, setSelectError] = useState<string | null>(null);
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
+  const selectionRequest = useRef(0);
 
   const refresh = useCallback(async () => {
-    try {
-      const [qs, ps] = await Promise.all([api.questionsNeedingAnswer(), api.pending()]);
-      setQuestions(qs);
-      setPending(ps);
-      setListError(null);
-    } catch (e) {
-      setListError(errorMessage(e));
-    }
+    const id = selectedIdRef.current;
+    const request = ++selectionRequest.current;
+    await Promise.all([
+      api.questionsNeedingAnswer()
+        .then((qs) => { setQuestions(qs); setListError(null); })
+        .catch((e: unknown) => setListError(errorMessage(e))),
+      api.pending()
+        .then((ps) => { setPending(ps); setPendingError(null); })
+        .catch((e: unknown) => setPendingError(errorMessage(e))),
+      id ? api.question(id).then((question) => {
+        if (selectedIdRef.current === id && request === selectionRequest.current) {
+          setSelected({ question });
+          setSelectError(null);
+        }
+      }).catch((e: unknown) => {
+        if (selectedIdRef.current === id && request === selectionRequest.current) {
+          setSelected(null);
+          setSelectError(errorMessage(e));
+        }
+      }) : Promise.resolve(),
+    ]);
   }, []);
 
   // Initial load + live updates over SSE.
   useEffect(() => {
     void refresh();
-    const es = new EventSource("/events");
-    es.onopen = () => setConnected(true);
-    es.onerror = () => setConnected(false);
-    es.addEventListener("question", (ev) => {
-      void refresh();
-      try {
-        const q = JSON.parse((ev as MessageEvent<string>).data) as Question;
-        if (q?.id && q.id === selectedIdRef.current) {
-          setSelected((cur) => (cur && cur.question.id === q.id ? { ...cur, question: q } : cur));
+    let es: EventSource;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const connect = () => {
+      es = new EventSource("/events");
+      es.onopen = () => {
+        setConnected(true);
+        void refresh();
+      };
+      es.onerror = () => {
+        setConnected(false);
+        es.close();
+        retry = setTimeout(connect, 1500);
+      };
+      es.addEventListener("question", (ev) => {
+        void refresh();
+        try {
+          const q = JSON.parse((ev as MessageEvent<string>).data) as Question;
+          if (q?.id && q.id === selectedIdRef.current) {
+            setSelected({ question: q });
+            setSelectError(null);
+          }
+        } catch {
+          // ignore malformed payloads
         }
-      } catch {
-        // ignore malformed payloads
-      }
-    });
-    return () => es.close();
+      });
+    };
+    connect();
+    return () => { clearTimeout(retry); es.close(); };
   }, [refresh]);
 
   // Browser back/forward.
@@ -93,20 +120,21 @@ export function App() {
     }
   }, [selectedId, questions]);
 
-  // Load the selected question and its json-render spec.
+  // Load the selected question.
   useEffect(() => {
     if (!selectedId) {
       setSelected(null);
       return;
     }
     let cancelled = false;
+    const request = ++selectionRequest.current;
     setSelectError(null);
-    Promise.all([api.question(selectedId), api.questionUi(selectedId)])
-      .then(([question, spec]) => {
-        if (!cancelled) setSelected({ question, spec });
+    api.question(selectedId)
+      .then((question) => {
+        if (!cancelled && request === selectionRequest.current) setSelected({ question });
       })
       .catch((e: unknown) => {
-        if (!cancelled) {
+        if (!cancelled && request === selectionRequest.current) {
           setSelected(null);
           setSelectError(errorMessage(e));
         }
@@ -116,16 +144,7 @@ export function App() {
     };
   }, [selectedId]);
 
-  const onSubmitted = useCallback(() => {
-    void refresh();
-    const id = selectedIdRef.current;
-    if (id) {
-      api
-        .question(id)
-        .then((q) => setSelected((cur) => (cur && cur.question.id === q.id ? { ...cur, question: q } : cur)))
-        .catch(() => undefined);
-    }
-  }, [refresh]);
+  const onSubmitted = useCallback(() => { void refresh(); }, [refresh]);
 
   return (
     <div className="app">
@@ -141,7 +160,7 @@ export function App() {
             prepare-dev
           </a>
         </h1>
-        <span className={`conn${connected ? " on" : ""}`} title="SSE (/events)">
+        <span className={`conn${connected ? " on" : ""}`} title="回答はこのプロジェクトに保存されます">
           {connected ? "接続中" : "未接続"}
         </span>
       </header>
@@ -159,9 +178,9 @@ export function App() {
               {questions.map((q) => (
                 <li key={q.id}>
                   <button type="button" className={`question-item${q.id === selectedId ? " active" : ""}`} onClick={() => select(q.id)}>
-                    <span className="question-prompt">{q.prompt}</span>
+                    <span className="question-prompt">{questionTitle(q.prompt)}</span>
                     <span className="meta">
-                      {q.id} · {KIND_LABEL[q.kind] ?? q.kind} · {q.subjects.length} 件の対象
+                      {KIND_LABEL[q.kind] ?? q.kind}
                     </span>
                   </button>
                 </li>
@@ -172,6 +191,7 @@ export function App() {
 
         <section className="panel">
           <h2>エージェント処理待ちの回答</h2>
+          {pendingError ? <p className="notice error">回答一覧の取得に失敗しました: {pendingError}</p> : null}
           {pending.length === 0 ? (
             <p className="muted">ありません。</p>
           ) : (
@@ -179,9 +199,9 @@ export function App() {
               {pending.map((p) => (
                 <li key={p.answer_id}>
                   <button type="button" className={`question-item${p.question_id === selectedId ? " active" : ""}`} onClick={() => select(p.question_id)}>
-                    <span className="question-prompt">{p.prompt}</span>
+                    <span className="question-prompt">{questionTitle(p.prompt)}</span>
                     <span className="meta">
-                      {p.question_id} · {p.choice && p.choice.length ? p.choice.join(", ") : "選択なし"}
+                      回答を保存済み
                       {p.text ? ` · ${p.text}` : ""}
                     </span>
                     <span className="meta">
@@ -200,10 +220,33 @@ export function App() {
       <main className="main">
         {selectError ? <p className="notice error">質問を読み込めませんでした: {selectError}</p> : null}
         {!selectedId && !selectError ? <p className="muted">左の一覧から質問を選んでください。</p> : null}
-        {selectedId && !selected && !selectError ? <p className="muted">読み込み中…</p> : null}
-        {selected ? (
+        {selectedId && (!selected || selected.question.id !== selectedId) && !selectError ? <p className="muted">読み込み中…</p> : null}
+        {selected && selected.question.id === selectedId ? (
           <>
-            <QuestionView key={selected.question.id} spec={selected.spec} onSubmitted={onSubmitted} />
+            {selected.question.cancelled ? (
+              <section className="panel">
+                <p className="notice">
+                  この質問は取り消されました（{fmtTime(selected.question.cancelled.at)}）: {selected.question.cancelled.reason}
+                </p>
+                {selected.question.cancelled.replaced_by ? (
+                  <p>
+                    置き換え先:{" "}
+                    <a
+                      href={`/q/${encodeURIComponent(selected.question.cancelled.replaced_by)}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        select(selected.question.cancelled!.replaced_by);
+                      }}
+                    >
+                      {selected.question.cancelled.replaced_by}
+                    </a>
+                  </p>
+                ) : null}
+                <Markdown>{selected.question.prompt}</Markdown>
+              </section>
+            ) : (
+              <QuestionView key={selected.question.id} question={selected.question} onSubmitted={onSubmitted} />
+            )}
 
             {selected.question.answers.length > 0 ? (
               <section className="panel">
@@ -211,7 +254,7 @@ export function App() {
                 <ul className="answer-list">
                   {selected.question.answers.map((a) => (
                     <li key={a.answer_id}>
-                      <span className="answer-choice">{a.choice && a.choice.length ? a.choice.join(", ") : "選択なし"}</span>
+                      <span className="answer-choice">{a.choice?.map((key) => selected.question.options.find((o) => o.key === key)?.label ?? key).join("、") || "自由記述"}</span>
                       {a.text ? <span className="answer-text">{a.text}</span> : null}
                       <span className="meta">
                         {fmtTime(a.answered_at)} · {answerStatus(a)}

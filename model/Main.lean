@@ -26,6 +26,11 @@ partial def parseOpts (cfg : Config) : List String → Except String Config
 
 def main (args : List String) : IO UInt32 := do
   match args with
+  | ["recovery"] =>
+    let out ← IO.getStdout
+    for line in recoveryTraces do out.putStrLn line
+    out.flush
+    return 0
   | "gen" :: rest =>
     match parseOpts { depth := 0 } rest with
     | .error e =>

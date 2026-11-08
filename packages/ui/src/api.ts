@@ -1,4 +1,3 @@
-import type { Spec } from "@json-render/core";
 
 // Mirrors the JSON the runtime daemon serves (see packages/core/src/schemas.ts and
 // packages/runtime/src/server.ts). Only the fields the UI reads are listed.
@@ -41,6 +40,7 @@ export interface Question {
   allow_free_text: boolean;
   subjects: SubjectRef[];
   answers: Answer[];
+  cancelled?: { at: string; reason: string; replaced_by: string | null } | null;
 }
 
 export interface PendingAnswer {
@@ -105,15 +105,6 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
-/** Narrow an arbitrary JSON value to the flat json-render spec shape. */
-export function asSpec(value: unknown): Spec {
-  const v = value as Partial<Spec> | null;
-  if (!v || typeof v !== "object" || typeof v.root !== "string" || typeof v.elements !== "object" || v.elements === null) {
-    throw new Error("UI spec の形式が不正です (root/elements がありません)");
-  }
-  return v as Spec;
-}
-
 export function errorMessage(e: unknown): string {
   if (e instanceof ApiError) return `${e.body.message} (${e.body.error})`;
   if (e instanceof Error) return e.message;
@@ -125,7 +116,6 @@ const enc = encodeURIComponent;
 export const api = {
   questionsNeedingAnswer: () => request<Question[]>("/api/questions?needs_answer=1"),
   question: (id: string) => request<Question>(`/api/questions/${enc(id)}`),
-  questionUi: async (id: string) => asSpec(await request<unknown>(`/api/questions/${enc(id)}/ui`)),
   pending: () => request<PendingAnswer[]>("/api/pending"),
   record: (id: string) => request<RecordView>(`/api/records/${enc(id)}`),
   submitAnswer: (id: string, body: { choice: string[] | string | null; text: string | null }) =>

@@ -3,7 +3,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { ApiClient, ApiError } from "./client.js";
 
-export { ApiClient, ApiError, ensureDaemon, readDaemonInfo, toolRepoRoot } from "./client.js";
+export { ApiClient, ApiError, ensureDaemon, readDaemonInfo, stopDaemon } from "./client.js";
+export { toolPaths, canonicalRoot } from "./installation.js";
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
 
@@ -98,7 +99,6 @@ export function createMcpServer(client: ApiClient, host = "unknown"): McpServer 
           .array(z.object({ key: z.string(), label: z.string(), summary: z.string().optional(), recommended: z.boolean().optional(), reason: z.string().optional() }))
           .default([]),
         allow_free_text: z.boolean().default(true),
-        ui: z.unknown().optional(),
       },
     },
     (input) => guard(() => client.post("/api/questions", { ...input, created_by: { host } })),
@@ -154,6 +154,16 @@ export function createMcpServer(client: ApiClient, host = "unknown"): McpServer 
   );
 
   server.registerTool(
+    "question_cancel",
+    {
+      description:
+        "Withdraw a question that has no answer yet (reason required), e.g. after its subjects were revised. Create the new question first and pass its id as replaced_by. A question with answers cannot be cancelled: apply or close each answer.",
+      inputSchema: { question_id: z.string(), reason: z.string(), replaced_by: z.string().optional() },
+    },
+    ({ question_id, reason, replaced_by }) => guard(() => client.post(`${q(question_id)}/cancel`, { reason, replaced_by: replaced_by ?? null })),
+  );
+
+  server.registerTool(
     "verify_run",
     {
       description:
@@ -178,6 +188,22 @@ export function createMcpServer(client: ApiClient, host = "unknown"): McpServer 
     "verify_get",
     { description: "Read a verification run record.", inputSchema: { run_id: z.string() } },
     ({ run_id }) => guard(() => client.get(`/api/runs/${encodeURIComponent(run_id)}`)),
+  );
+
+  server.registerTool(
+    "review_bundle",
+    {
+      description:
+        "Build the material for a fresh-context reviewer: the given records (REQ/DEC/DES/SPEC...) at their current versions plus related confirmed decisions, as one markdown file under .prepare-dev/reviews/. Returns inputs ({id, rev, sha256} to put in the review record) and the file path. Give the reviewer this file and the persona only, never the conversation.",
+      inputSchema: { ids: z.array(z.string()).min(1), expand: z.boolean().default(true), title: z.string().optional(), include_markdown: z.boolean().default(false) },
+    },
+    ({ ids, expand, title, include_markdown }) =>
+      guard(async () => {
+        const qs = new URLSearchParams({ ids: ids.join(","), out: "1", expand: expand ? "1" : "0" });
+        if (title) qs.set("title", title);
+        const b = await client.get<{ inputs: unknown; markdown: string; path: string }>(`/api/bundle?${qs.toString()}`);
+        return include_markdown ? b : { inputs: b.inputs, path: b.path };
+      }),
   );
 
   server.registerTool(

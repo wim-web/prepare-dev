@@ -4,7 +4,8 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { readDaemonInfo, toolRepoRoot } from "./client.js";
+import { readDaemonInfo } from "./client.js";
+import { toolPaths } from "./installation.js";
 
 let root: string;
 let client: Client;
@@ -16,7 +17,7 @@ function text(r: unknown): unknown {
 
 beforeAll(async () => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "prepare-dev-mcp-"));
-  const repo = toolRepoRoot();
+  const repo = toolPaths().identity.root;
   const transport = new StdioClientTransport({
     command: path.join(repo, "node_modules", ".bin", "tsx"),
     args: [path.join(repo, "packages", "cli", "src", "index.ts"), "mcp", "--root", root, "--host", "test"],
@@ -38,7 +39,7 @@ describe("MCP entry (stdio) over the daemon", () => {
   it("exposes the tools and runs the question flow", async () => {
     const tools = (await client.listTools()).tools.map((t) => t.name).sort();
     expect(tools).toEqual(
-      ["question_ack", "question_apply", "question_close", "question_create", "question_pending", "question_wait", "record_get", "record_list", "record_put", "status", "trace", "verify_get", "verify_run", "verify_wait"].sort(),
+      ["question_ack", "question_apply", "question_cancel", "question_close", "question_create", "question_pending", "question_wait", "record_get", "record_list", "record_put", "review_bundle", "status", "trace", "verify_get", "verify_run", "verify_wait"].sort(),
     );
 
     const rec = text(await client.callTool({ name: "record_put", arguments: { kind: "requirement", title: "要求", body: "本文" } })) as { id: string; rev: number; sha256: string };

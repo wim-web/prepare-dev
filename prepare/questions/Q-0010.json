@@ -1,0 +1,56 @@
+{
+  "id": "Q-0010",
+  "rev": 1,
+  "state": "cancelled",
+  "kind": "single_choice",
+  "created_at": "2026-11-08T14:09:24.996Z",
+  "created_by": {
+    "host": "cli"
+  },
+  "subjects": [
+    {
+      "id": "SPEC-0002",
+      "rev": 3,
+      "sha256": "d62f8cbe89629ce93080a77af8beb89fc4069b644bac7e15ea055bd7d643b0e2"
+    },
+    {
+      "id": "DES-0001",
+      "rev": 3,
+      "sha256": "98d5f8b68c5b76b4b35455f788d1437e5492c628acf06c453bdedaf22cb2b61a"
+    },
+    {
+      "id": "REQ-0003",
+      "rev": 2,
+      "sha256": "70152a050f8ad5371dcc945a1b1e4f07ca8247b0714706c1db9da4d8f359f211"
+    }
+  ],
+  "prompt": "SPEC-0002 rev 3 §2.2: デーモン起動の排他の直し方。DES-0001 決定点 2 の手順（古い daemon.lock を rename で引き取る）には欠陥があり、二つの serve が同時に Runtime.open（回復処理と journal への書き込み）に進みうる。P1 と P2 が同じ死んだ lock を読んだあと、P1 が引き取って lock を作り直してから P2 が rename すると、P2 は P1 の生きた lock を奪う。DES-0001 が 2b を棄てた理由と同じ競合で、作者と二つのレビュー役（REV-0020/f1、REV-0021/f2）が独立に見つけた。claim 後に daemon.json を見ない穴（REV-0020/f2）は、どの案でも claim 後の読み直しで塞ぐ。比較は SPEC-0002 §2.2 と §5「人に聞く判断」。",
+  "options": [
+    {
+      "key": "lock-break-file",
+      "label": "daemon.lock.break で引き取りを直列化し、lock は一時ファイル＋link で作る（SPEC-0002 rev 3 の前提）",
+      "recommended": true,
+      "reason": "I1（claim 済みは一つ）が pid の再利用以外の前提なしに成り立ち、強制終了で残った lock からも自動で回復する。daemon.lock.break が残るのは引き取りの数回のファイル操作の間に落ちたときだけで、そのときは人が消す"
+    },
+    {
+      "key": "lock-verify-relink",
+      "label": "rename の後に移した内容を照合し、違えば link で戻す（レビュー役の提案）",
+      "reason": "DES-0001 の手順からの変更が小さい。ただし三つのプロセスが絡む窓が残り、I1 は前提つきになる"
+    },
+    {
+      "key": "lock-stale-manual",
+      "label": "古い lock を自動では引き取らず、エラーで人に消させる",
+      "reason": "手順が最も単純で I1 は無条件に成り立つ。ただし案 G では全セッションで入口が起動するので、起動中の強制終了のあとは毎セッションのホストがエラーを出し、人が消すまで使えない"
+    }
+  ],
+  "allow_free_text": true,
+  "ui": {
+    "spec": null
+  },
+  "answers": [],
+  "cancelled": {
+    "at": "2026-11-08T16:31:05.230Z",
+    "reason": "対象の記録がレビューの修正で改訂されたので、新しい版で質問し直した（回答はまだ無かった）",
+    "replaced_by": "Q-0021"
+  }
+}

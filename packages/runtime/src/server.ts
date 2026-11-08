@@ -1,13 +1,14 @@
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
-import { DecisionDraft, QuestionKind, QuestionOption, nowIso } from "@prepare-dev/core";
+import { randomUUID } from "node:crypto";
+import { DecisionDraft, QuestionKind, QuestionOption, nowIso, type ToolIdentity } from "@prepare-dev/core";
 import { z } from "zod";
 import { RuntimeError, SimulatedCrash } from "./errors.js";
 import type { ApplyStage } from "./questions.js";
 import type { Runtime } from "./runtime.js";
-import { questionSpec } from "./ui-spec.js";
 import { writeFileAtomic } from "./store.js";
+import { buildBundle } from "./bundle.js";
 
 export interface ServerOptions {
   port?: number;
@@ -16,6 +17,8 @@ export interface ServerOptions {
   uiHtml?: string;
   /** For end-to-end crash tests: exit the process right after this apply stage. */
   crashAfter?: ApplyStage | null;
+  tool?: ToolIdentity;
+  onShutdown?: () => Promise<void>;
 }
 
 export interface DaemonInfo {
@@ -24,6 +27,8 @@ export interface DaemonInfo {
   url: string;
   root: string;
   started_at: string;
+  tool?: ToolIdentity;
+  shutdown_token?: string;
 }
 
 const CreateRecordBody = z.object({
@@ -46,9 +51,8 @@ const CreateQuestionBody = z.object({
   subjects: z.array(z.string()),
   options: z.array(QuestionOption).default([]),
   allow_free_text: z.boolean().default(true),
-  ui: z.unknown().optional(),
   created_by: z.object({ host: z.string().optional(), session: z.string().optional() }).optional(),
-});
+}).strict();
 
 const AnswerBody = z.object({
   choice: z.union([z.array(z.string()), z.string(), z.null()]).optional(),
@@ -61,6 +65,7 @@ const ApplyBody = z.object({
 });
 
 const CloseBody = z.object({ reason: z.string() });
+const CancelBody = z.object({ reason: z.string(), replaced_by: z.string().nullable().default(null) });
 
 const RunBody = z.object({
   plugin: z.string(),
@@ -83,6 +88,8 @@ export class Server {
   private readonly sseClients = new Set<http.ServerResponse>();
   private server: http.Server | null = null;
   private heartbeat: NodeJS.Timeout | null = null;
+  private readonly shutdownToken = randomUUID();
+  private stopping = false;
   readonly daemonFile: string;
   info: DaemonInfo | null = null;
 
@@ -116,6 +123,18 @@ export class Server {
     const rt = this.runtime;
     const q = rt.questions;
 
+    this.add("GET", "/api/identity", (_req, res) => json(res, 200, {
+      pid: process.pid, root: rt.root, started_at: this.info?.started_at, tool: this.options.tool ?? null,
+    }));
+    this.add("POST", "/api/shutdown", (req, res) => {
+      if (req.headers.authorization !== `Bearer ${this.shutdownToken}`) throw new RuntimeError("forbidden", "invalid shutdown token");
+      if (!this.options.onShutdown) throw new RuntimeError("unsupported", "shutdown is not managed by this server");
+      if (rt.runs.jobsList().some((j) => j.status === "running")) throw new RuntimeError("conflict", "verification is running; wait for it to finish before stopping");
+      this.stopping = true;
+      json(res, 200, { stopping: true });
+      setTimeout(() => void this.options.onShutdown?.(), 10);
+    });
+
     this.add("GET", "/api/status", (_req, res) => json(res, 200, rt.status.view()));
 
     this.add("GET", "/api/records", (_req, res, _p, url) => {
@@ -135,14 +154,14 @@ export class Server {
     });
 
     this.add("POST", "/api/records", async (req, res) => {
-      const body = CreateRecordBody.parse(await readJson(req));
+      const body = CreateRecordBody.parse(await this.readBody(req));
       forbidAnswerDecision(body.frontmatter, body.kind);
       const r = rt.store.createRecord(body.kind as never, { ...body.frontmatter, title: body.title }, body.body);
       json(res, 201, r);
     });
 
     this.add("PUT", "/api/records/:id", async (req, res, p) => {
-      const body = UpdateRecordBody.parse(await readJson(req));
+      const body = UpdateRecordBody.parse(await this.readBody(req));
       const cur = rt.store.readRecord(p.id!);
       forbidAnswerDecision({ ...cur.frontmatter, ...body.frontmatter }, cur.kind);
       if (cur.frontmatter.txid) throw new RuntimeError("forbidden", "decisions created from answers are confirmed through question_apply only");
@@ -160,17 +179,15 @@ export class Server {
     this.add("GET", "/api/pending", (_req, res) => json(res, 200, q.pending()));
 
     this.add("POST", "/api/questions", async (req, res) => {
-      const body = CreateQuestionBody.parse(await readJson(req));
+      const body = CreateQuestionBody.parse(await this.readBody(req));
       const created = q.create(body);
       json(res, 201, { question: created, url: this.questionUrl(created.id) });
     });
 
     this.add("GET", "/api/questions/:id", (_req, res, p) => json(res, 200, q.read(p.id!)));
 
-    this.add("GET", "/api/questions/:id/ui", (_req, res, p) => json(res, 200, questionSpec(q.read(p.id!))));
-
     this.add("POST", "/api/questions/:id/answers", async (req, res, p) => {
-      const body = AnswerBody.parse(await readJson(req));
+      const body = AnswerBody.parse(await this.readBody(req));
       const choice = body.choice === undefined || body.choice === null ? null : Array.isArray(body.choice) ? body.choice : [body.choice];
       const r = q.answer(p.id!, { choice, text: body.text ?? null });
       json(res, 201, r);
@@ -187,7 +204,7 @@ export class Server {
     this.add("POST", "/api/questions/:id/answers/:aid/ack", (_req, res, p) => json(res, 200, q.ack(p.id!, p.aid!)));
 
     this.add("POST", "/api/questions/:id/answers/:aid/apply", async (req, res, p) => {
-      const body = ApplyBody.parse(await readJson(req));
+      const body = ApplyBody.parse(await this.readBody(req));
       const crashAfter = this.options.crashAfter ?? (process.env.PREPARE_DEV_CRASH_AFTER as ApplyStage | undefined) ?? null;
       const hooks = crashAfter
         ? {
@@ -205,8 +222,13 @@ export class Server {
       json(res, 200, r);
     });
 
+    this.add("POST", "/api/questions/:id/cancel", async (req, res, p) => {
+      const body = CancelBody.parse(await this.readBody(req));
+      json(res, 200, q.cancel(p.id!, body.reason, body.replaced_by));
+    });
+
     this.add("POST", "/api/questions/:id/answers/:aid/close", async (req, res, p) => {
-      const body = CloseBody.parse(await readJson(req));
+      const body = CloseBody.parse(await this.readBody(req));
       json(res, 200, q.close(p.id!, p.aid!, body.reason));
     });
 
@@ -219,7 +241,7 @@ export class Server {
     );
 
     this.add("POST", "/api/runs", async (req, res) => {
-      const body = RunBody.parse(await readJson(req));
+      const body = RunBody.parse(await this.readBody(req));
       json(res, 202, rt.runs.start(body));
     });
 
@@ -235,6 +257,16 @@ export class Server {
     });
 
     this.add("GET", "/api/trace/:id", (_req, res, p) => json(res, 200, rt.trace.for(p.id!)));
+
+    this.add("GET", "/api/bundle", (_req, res, _p, url) => {
+      const ids = (url.searchParams.get("ids") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+      const b = buildBundle(rt.store, ids, (d) => rt.trace.isPublic(d), {
+        out: url.searchParams.get("out") === "1",
+        expand: url.searchParams.get("expand") !== "0",
+        title: url.searchParams.get("title") ?? undefined,
+      });
+      json(res, 200, b);
+    });
 
     this.add("GET", "/api/plugins", (_req, res) => json(res, 200, rt.runs.pluginNames()));
 
@@ -255,7 +287,6 @@ export class Server {
       "content-type": "text/event-stream",
       "cache-control": "no-cache",
       connection: "keep-alive",
-      "access-control-allow-origin": "*",
     });
     res.write(`event: hello\ndata: ${JSON.stringify({ ts: nowIso() })}\n\n`);
     this.sseClients.add(res);
@@ -276,7 +307,7 @@ export class Server {
       res.end(fs.readFileSync(file));
       return;
     }
-    res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    res.writeHead(503, { "content-type": "text/html; charset=utf-8" });
     res.end(FALLBACK_HTML);
   }
 
@@ -292,7 +323,7 @@ export class Server {
     });
     const addr = server.address();
     const port = typeof addr === "object" && addr ? addr.port : 0;
-    this.info = { pid: process.pid, port, url: `http://${host}:${port}`, root: this.runtime.root, started_at: nowIso() };
+    this.info = { pid: process.pid, port, url: `http://${host}:${port}`, root: this.runtime.root, started_at: nowIso(), tool: this.options.tool, shutdown_token: this.shutdownToken };
     writeFileAtomic(this.daemonFile, `${JSON.stringify(this.info, null, 2)}\n`);
     this.heartbeat = setInterval(() => this.broadcast("ping", { ts: nowIso() }), 15_000);
     this.heartbeat.unref();
@@ -300,6 +331,7 @@ export class Server {
   }
 
   async close(): Promise<void> {
+    this.stopping = true;
     if (this.heartbeat) clearInterval(this.heartbeat);
     for (const c of this.sseClients) c.end();
     this.sseClients.clear();
@@ -309,11 +341,24 @@ export class Server {
     } catch {
       // ignore
     }
-    await new Promise<void>((resolve) => this.server?.close(() => resolve()));
+    const closed = new Promise<void>((resolve) => this.server ? this.server.close(() => resolve()) : resolve());
+    this.server?.closeAllConnections();
+    await closed;
   }
 
   private async handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    const port = this.info?.port;
+    const host = req.headers.host;
+    const allowed = [`127.0.0.1:${port}`, `localhost:${port}`];
+    if (!host || !allowed.includes(host) || (req.headers.origin && req.headers.origin !== `http://${host}`)) {
+      json(res, 403, { error: "forbidden", message: "request must originate from this local UI" });
+      return;
+    }
     const url = new URL(req.url ?? "/", "http://localhost");
+    if (this.stopping && url.pathname !== "/api/identity") {
+      json(res, 409, { error: "conflict", message: "daemon is stopping; retry after it has stopped" });
+      return;
+    }
     if (req.method === "OPTIONS") {
       res.writeHead(204, corsHeaders());
       res.end();
@@ -335,6 +380,12 @@ export class Server {
     json(res, 404, { error: "not_found", message: `no route ${req.method} ${url.pathname}` });
   }
 
+  private async readBody(req: http.IncomingMessage): Promise<unknown> {
+    const body = await readJson(req);
+    if (this.stopping) throw new RuntimeError("conflict", "daemon is stopping; retry after it has stopped");
+    return body;
+  }
+
   private error(res: http.ServerResponse, e: unknown): void {
     if (e instanceof RuntimeError) {
       json(res, e.httpStatus, { error: e.code, message: e.message, details: e.details });
@@ -346,21 +397,8 @@ export class Server {
   }
 }
 
-export function readDaemonInfo(root: string): DaemonInfo | null {
-  const file = path.join(root, ".prepare-dev", "daemon.json");
-  if (!fs.existsSync(file)) return null;
-  try {
-    const info = JSON.parse(fs.readFileSync(file, "utf8")) as DaemonInfo;
-    process.kill(info.pid, 0);
-    return info;
-  } catch {
-    return null;
-  }
-}
-
 function corsHeaders(): Record<string, string> {
   return {
-    "access-control-allow-origin": "*",
     "access-control-allow-methods": "GET,POST,PUT,OPTIONS",
     "access-control-allow-headers": "content-type",
   };
@@ -394,15 +432,4 @@ function forbidAnswerDecision(fm: Record<string, unknown>, kind: string): void {
   }
 }
 
-const FALLBACK_HTML = `<!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><title>prepare-dev</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>body{font-family:system-ui;margin:2rem;max-width:48rem}fieldset{margin:1rem 0;padding:1rem}label{display:block;margin:.25rem 0}</style></head>
-<body><h1>prepare-dev（簡易UI）</h1><p>ビルド済みの UI が見つからないため、簡易フォームを表示しています。</p><div id="app">読み込み中…</div>
-<script>
-async function load(){const qs=await (await fetch('/api/questions?needs_answer=1')).json();const app=document.getElementById('app');app.innerHTML='';
-if(!qs.length){app.textContent='回答待ちの質問はありません。';return}
-for(const q of qs){const f=document.createElement('form');f.innerHTML='<fieldset><legend>'+q.id+'</legend><p>'+q.prompt+'</p>'+q.options.map(o=>'<label><input type="'+(q.kind==='multi_choice'?'checkbox':'radio')+'" name="c" value="'+o.key+'"> '+o.label+(o.recommended?'（推奨）':'')+(o.reason?' — '+o.reason:'')+'</label>').join('')+'<label>補足 <textarea name="t"></textarea></label><button>回答を送る</button></fieldset>';
-f.onsubmit=async e=>{e.preventDefault();const fd=new FormData(f);const choice=fd.getAll('c');const text=fd.get('t')||null;const r=await fetch('/api/questions/'+q.id+'/answers',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({choice,text})});alert(r.ok?'送信しました':'失敗: '+await r.text());load()};app.appendChild(f)}}
-load();new EventSource('/events').addEventListener('question',load);
-</script></body></html>`;
+const FALLBACK_HTML = `<!doctype html><html lang="ja"><meta charset="utf-8"><title>prepare-dev</title><body><h1>判断用UIを読み込めません</h1><p>配布物を再インストールしてください。開発環境では pnpm ui:build を実行してください。</p></body></html>`;

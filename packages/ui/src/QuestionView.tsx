@@ -1,80 +1,82 @@
-import { useEffect, useMemo, useRef } from "react";
-import type { Spec, StateModel } from "@json-render/core";
-import { createStateStore, JSONUIProvider, Renderer, useStateValue, type SetState } from "@json-render/react";
-import { createHandlers, registry, SUBMIT_STATE_PATH, type SubmitStatus } from "./registry";
+import { useId, useState, type FormEvent } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { api, errorMessage, type Question, type Answer } from "./api";
 
-interface Props {
-  spec: Spec;
-  onSubmitted?: (status: Extract<SubmitStatus, { phase: "sent" }>) => void;
+type Submission =
+  | { kind: "idle" }
+  | { kind: "sending" }
+  | { kind: "sent"; answer: Answer }
+  | { kind: "error"; message: string };
+
+export function Markdown({ children }: { children: string }) {
+  return <div className="markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>{children}</ReactMarkdown></div>;
 }
 
-/**
- * Renders one question's json-render spec. State is owned by a controlled
- * `createStateStore` seeded from `spec.state` so the submit_answer action can
- * write its result back (at /submit) through json-render's own state model.
- */
-export function QuestionView({ spec, onSubmitted }: Props) {
-  const store = useMemo(() => createStateStore((spec.state as StateModel | undefined) ?? {}), [spec]);
-  const storeRef = useRef(store);
-  storeRef.current = store;
-
-  // ActionProvider captures handlers at mount, so handlers reach the store via a ref.
-  const handlers = useMemo(() => {
-    const setState: SetState = (updater) => {
-      const s = storeRef.current;
-      const prev = s.getSnapshot();
-      const next = updater(prev);
-      const updates: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(next)) {
-        if (!Object.is(value, prev[key])) updates[`/${key}`] = value;
-      }
-      s.update(updates);
-    };
-    return createHandlers(
-      () => setState,
-      () => storeRef.current.getSnapshot(),
-    );
-  }, []);
-
-  return (
-    <JSONUIProvider registry={registry} store={store} handlers={handlers}>
-      <Renderer spec={spec} registry={registry} />
-      <SubmitStatusView onSubmitted={onSubmitted} />
-    </JSONUIProvider>
-  );
+export function questionTitle(prompt: string): string {
+  return prompt.split("\n").find((line) => line.trim())?.replace(/^#{1,6}\s+/, "").trim() ?? "質問";
 }
 
-function SubmitStatusView({ onSubmitted }: Pick<Props, "onSubmitted">) {
-  const status = useStateValue<SubmitStatus>(SUBMIT_STATE_PATH);
-  const notified = useRef<string | null>(null);
-  useEffect(() => {
-    if (status?.phase === "sent" && notified.current !== status.answer_id) {
-      notified.current = status.answer_id;
-      onSubmitted?.(status);
+export function QuestionView({ question, onSubmitted }: { question: Question; onSubmitted?: () => void }) {
+  const name = useId();
+  const [choice, setChoice] = useState<string[]>([]);
+  const [text, setText] = useState("");
+  const [submission, setSubmission] = useState<Submission>({ kind: "idle" });
+  const multiple = question.kind === "multi_choice";
+  const busy = submission.kind === "sending";
+  const answered = question.answers.some((a) => !a.closed && !a.stale);
+  const submitted = submission.kind === "sent" ? question.answers.find((a) => a.answer_id === submission.answer.answer_id) ?? submission.answer : null;
+  const done = answered || (submitted !== null && !submitted.closed && !submitted.stale);
+  const stale = submitted?.stale || (!answered && question.answers.some((a) => a.stale && !a.closed));
+  const canSend = choice.length > 0 || text.trim().length > 0;
+  const toggle = (key: string) => setChoice((current) => multiple
+    ? question.options.filter((o) => o.key === key ? !current.includes(key) : current.includes(o.key)).map((o) => o.key)
+    : [key]);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (busy || done || !canSend) return;
+    setSubmission({ kind: "sending" });
+    try {
+      const result = await api.submitAnswer(question.id, { choice, text: text.trim() || null });
+      setSubmission({ kind: "sent", answer: result.answer });
+      onSubmitted?.();
+    } catch (error) {
+      setSubmission({ kind: "error", message: errorMessage(error) });
     }
-  }, [status, onSubmitted]);
+  };
 
-  if (!status) return null;
-  if (status.phase === "sending") {
-    return (
-      <p className="notice" role="status">
-        送信中…
-      </p>
-    );
-  }
-  if (status.phase === "sent") {
-    return (
-      <p className="notice ok" role="status">
-        回答を送信しました（{status.answer_id}）。エージェントの処理を待っています。
-      </p>
-    );
-  }
-  const details = status.details;
-  const hasDetails = details !== undefined && details !== null && (typeof details !== "object" || Object.keys(details).length > 0);
-  return (
-    <div className="notice error" role="alert">
-      <p>送信に失敗しました: {status.message}</p>
-      {hasDetails ? <pre>{JSON.stringify(details, null, 2)}</pre> : null}
+  return <section className="card decision-card">
+    <header className="card-head">
+      <p className="eyebrow">{done ? "回答済み" : "あなたに確認したいこと"}</p>
+      <Markdown>{question.prompt}</Markdown>
+    </header>
+    <div className="card-body">
+      {stale ? <p className="notice warning" role="status">資料が更新されています。回答は保存されますが、自動では判断に反映されません。エージェントによる再確認が必要です。</p> : null}
+      {done ? <p className="notice ok" role="status">
+        {question.answers.some((a) => a.applied_as) ? "回答が判断に反映されました。" : "回答を保存しました。エージェントが続きの作業を進めます。"}
+      </p> : <form onSubmit={(event) => void submit(event)}>
+        <fieldset disabled={busy} className="answer-fields">
+          {question.options.length > 0 ? <>
+            <legend>{multiple ? "当てはまるものを選んでください" : "一つ選んでください"}</legend>
+            <div className="option-list">
+              {question.options.map((option) => <label key={option.key} className={`option${choice.includes(option.key) ? " selected" : ""}`}>
+                <input type={multiple ? "checkbox" : "radio"} name={name} value={option.key} checked={choice.includes(option.key)} onChange={() => toggle(option.key)} />
+                <span className="option-main">
+                  <span className="option-label">{option.label}{option.recommended ? <span className="badge">推奨</span> : null}</span>
+                  {option.summary ? <span className="option-summary">{option.summary}</span> : null}
+                  {option.reason ? <span className="option-reason">{option.recommended ? "推奨の理由：" : "判断材料："}{option.reason}</span> : null}
+                </span>
+              </label>)}
+            </div>
+          </> : null}
+          {question.allow_free_text || question.kind === "free_text" ? <div className="field">
+            <label htmlFor={`${name}-text`}>{question.kind === "free_text" ? "あなたの回答" : "補足・別の案（任意）"}</label>
+            <textarea id={`${name}-text`} rows={4} value={text} onChange={(event) => setText(event.target.value)} placeholder={question.kind === "free_text" ? "考えや条件を記入してください" : "条件や気になる点があれば記入してください"} />
+          </div> : null}
+          <button className="btn btn-primary" type="submit" disabled={!canSend || busy}>{busy ? "保存しています…" : "この内容で回答する"}</button>
+        </fieldset>
+        {submission.kind === "error" ? <p className="notice error" role="alert">回答を保存できませんでした。{submission.message} 入力は残っています。接続を確認して再送してください。</p> : null}
+      </form>}
     </div>
-  );
+  </section>;
 }

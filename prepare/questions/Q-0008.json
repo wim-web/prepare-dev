@@ -1,0 +1,46 @@
+{
+  "id": "Q-0008",
+  "rev": 1,
+  "state": "cancelled",
+  "kind": "single_choice",
+  "created_at": "2026-11-08T12:04:51.777Z",
+  "created_by": {
+    "host": "cli"
+  },
+  "subjects": [
+    {
+      "id": "DES-0001",
+      "rev": 3,
+      "sha256": "98d5f8b68c5b76b4b35455f788d1437e5492c628acf06c453bdedaf22cb2b61a"
+    },
+    {
+      "id": "REQ-0006",
+      "rev": 2,
+      "sha256": "071c78050c11c4021953f90e2fb67a03b8743993ed82cfa0469e477339dde3b9"
+    }
+  ],
+  "prompt": "DES-0001 rev 3 §10 矛盾候補 1: REQ-0006 §要求「道具リポジトリの固定の場所（packages/ui/dist/index.html）を前提にしない」の読み方。設計（決定点 4a）は段階 1 では <toolRepoRoot>/packages/ui/dist/index.html（checkout 相対。toolRepoRoot は import.meta.url から求めるので checkout の移動に追従する）を探し、探したパスと有無を daemon.json と status に出します。「固定の場所」を「道具リポジトリの固定の絶対位置」と読み、REQ-0006 AC-3（固定パスを残さない）が D 限定であることを根拠にしました。設計は自分で REQ を直しません。",
+  "options": [
+    {
+      "key": "ui-checkout-relative-ok",
+      "label": "解釈どおり: 段階 1 では checkout 相対の一箇所で探してよい。REQ-0006 はそのまま",
+      "recommended": true,
+      "reason": "段階 1 では UI は checkout の中にしか無く、他に探す場所が無い。AC-1（checkout を移動して起動し直しても本来の UI）と AC-2（無ければ探したパスを報告）はこの形で満たせる。段階 2 では uiHtmlPath() だけを変える（H4）"
+    },
+    {
+      "key": "ui-no-fixed-path-stage1",
+      "label": "段階 1 でも checkout 内の固定の相対位置を前提にしてはならない。REQ-0006 の文言を明確にし、設計を候補パスの列（4b）か埋め込み（4c）に変える",
+      "reason": "REQ-0006 §要求の文言をそのまま読む立場。段階 2 の配置方法（H6 未試行）を今決めることになる"
+    }
+  ],
+  "allow_free_text": true,
+  "ui": {
+    "spec": null
+  },
+  "answers": [],
+  "cancelled": {
+    "at": "2026-11-08T16:31:04.445Z",
+    "reason": "対象の記録がレビューの修正で改訂されたので、新しい版で質問し直した（回答はまだ無かった）",
+    "replaced_by": "Q-0020"
+  }
+}

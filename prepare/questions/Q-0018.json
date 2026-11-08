@@ -1,0 +1,51 @@
+{
+  "id": "Q-0018",
+  "rev": 1,
+  "state": "cancelled",
+  "kind": "single_choice",
+  "created_at": "2026-11-08T16:31:02.485Z",
+  "created_by": {
+    "host": "cli"
+  },
+  "subjects": [
+    {
+      "id": "DES-0001",
+      "rev": 5,
+      "sha256": "739a89c10ba9326c5c0163f71c22085036aaf4b43b278413380000e1c4dd5368"
+    },
+    {
+      "id": "REQ-0003",
+      "rev": 2,
+      "sha256": "70152a050f8ad5371dcc945a1b1e4f07ca8247b0714706c1db9da4d8f359f211"
+    }
+  ],
+  "prompt": "DES-0001 rev 5 決定点 6: 案 G では利用者単位の登録により入口が機械上の全セッションで起動し、対象と判定したディレクトリでデーモンが自動で立ちます。デーモンの HTTP は無認証で access-control-allow-origin: * を返し、/api/runs は対象の vitest や lake を実行します（DIS-0001 §現状。別件とされている弱点）。現状はプロジェクト単位の登録をホストが承認することが同意の関門でした。G でこの関門をどこに置くか。比較は DES-0001 §5.3、§6 決定点 6、§7。",
+  "options": [
+    {
+      "key": "consent-allowlist",
+      "label": "6a: init が利用者単位の対象一覧（~/.prepare-dev/targets.json。PREPARE_DEV_USER_DIR で差し替え可）に登録し、入口は config.json と一覧の両方を見る。records_dir は root 内に制限する",
+      "recommended": true,
+      "reason": "デーモンが自動で立つ対象を利用者が init した対象に限り、露出の範囲を現状（ホストが承認したプロジェクト）と同じにする。変更は小さい。clone ごとに init が要る（CUJ 1 で既に行う）"
+    },
+    {
+      "key": "consent-config-only",
+      "label": "6b: config.json の有無だけで自動起動する（リスクを受容する）",
+      "reason": "簡単だが、clone した見知らぬリポジトリに config.json があるだけで無認証・CORS * の HTTP が開き、任意のページから対象の vitest/lake を起動できる。受容するなら DEC として残す"
+    },
+    {
+      "key": "consent-origin-first",
+      "label": "6c: origin 制限（別件）を段階 1 の前提条件に前倒しし、実装してから G の案内を出す（6a と併用可）",
+      "reason": "露出そのものが減る。本設計の実装が別件に依存して止まる。DIS-0001 の非目標の変更になる"
+    }
+  ],
+  "allow_free_text": true,
+  "ui": {
+    "spec": null
+  },
+  "answers": [],
+  "cancelled": {
+    "at": "2026-11-08T17:03:45.385Z",
+    "reason": "Q-0002 の回答（CLI として配布し skill から CLI を実行、MCP 登録を前提にしない）で前提が変わったため取り下げる。要求と設計を整理し直してから、必要なものだけを分かる形で聞き直す",
+    "replaced_by": null
+  }
+}

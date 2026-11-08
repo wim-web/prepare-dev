@@ -206,7 +206,7 @@ ul {
   font-weight: 500;
 }
 
-/* ---- json-render components ---- */
+/* Question and answer components */
 
 .card {
   border: 1px solid var(--border);
@@ -490,3 +490,31 @@ ul {
     border-bottom: 1px solid var(--border);
   }
 }
+
+/* Decision content */
+.eyebrow { color: var(--accent); font-size: .78rem; font-weight: 650; margin: 0 0 .8rem; letter-spacing: .06em; }
+.markdown { line-height: 1.8; overflow-wrap: anywhere; }
+.markdown h1 { font-size: 1.6rem; line-height: 1.5; margin: 0 0 1.2rem; }
+.markdown h2 { font-size: 1.08rem; color: var(--fg); margin: 1.6rem 0 .7rem; }
+.markdown h3 { font-size: 1rem; margin: 1.2rem 0 .5rem; }
+.markdown p { margin: .6rem 0; }
+.markdown ul { list-style: disc; padding-left: 1.5rem; margin: .65rem 0; }
+.markdown ol { padding-left: 1.5rem; }
+.markdown table { border-collapse: collapse; display: block; max-width: 100%; overflow-x: auto; margin: 1rem 0; font-size: .9rem; }
+.markdown th, .markdown td { padding: .7rem .85rem; border: 1px solid var(--border); text-align: left; min-width: 7rem; }
+.markdown th { background: var(--panel); font-weight: 650; }
+.markdown pre { overflow-x: auto; padding: .75rem; background: var(--panel); border-radius: 6px; }
+.markdown blockquote { margin: 1rem 0; padding: .25rem 1rem; border-left: 3px solid var(--accent); color: var(--muted); }
+.markdown a { color: var(--accent); }
+.answer-fields { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 1.2rem; }
+.answer-fields legend { font-size: 1rem; font-weight: 650; margin-bottom: 1rem; }
+.answer-fields .option { padding: 1rem; }
+.answer-fields .option-label { font-weight: 650; }
+.answer-fields .option-summary { margin: .2rem 0; }
+.answer-fields textarea { min-height: 7rem; }
+.option:focus-within, .question-item:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.notice.warning { border-color: var(--warn); color: var(--warn); }
+.references > summary { cursor: pointer; font-size: .85rem; color: var(--muted); }
+.references .record { margin-top: .7rem; }
+.question-prompt { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+@media (min-width: 1100px) { .main { padding: 2rem 2.5rem 4rem; max-width: 66rem; } .sidebar { padding: 1.5rem; } }

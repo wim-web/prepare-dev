@@ -1,15 +1,17 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { z } from "zod";
+import { ToolIdentity } from "@prepare-dev/core";
+import { canonicalRoot, toolPaths } from "./installation.js";
 
-export interface DaemonInfo {
-  pid: number;
-  port: number;
-  url: string;
-  root: string;
-  started_at: string;
-}
+const DaemonFile = z.object({
+  pid: z.number().int().positive(), port: z.number().int().min(1).max(65535),
+  url: z.string().url(), root: z.string(), started_at: z.string(),
+  tool: ToolIdentity.optional(), shutdown_token: z.string().optional(),
+});
+export type DaemonInfo = z.infer<typeof DaemonFile>;
+const LiveIdentity = z.object({ pid: z.number(), root: z.string(), started_at: z.string(), tool: ToolIdentity.nullable() });
 
 export class ApiError extends Error {
   constructor(
@@ -23,50 +25,78 @@ export class ApiError extends Error {
   }
 }
 
-/** Repository root of prepare-dev itself (where the CLI lives), resolved from this file. */
-export function toolRepoRoot(): string {
-  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-}
-
 export function readDaemonInfo(root: string): DaemonInfo | null {
   const file = path.join(root, ".prepare-dev", "daemon.json");
-  if (!fs.existsSync(file)) return null;
   try {
-    const info = JSON.parse(fs.readFileSync(file, "utf8")) as DaemonInfo;
-    process.kill(info.pid, 0);
+    const info = DaemonFile.parse(JSON.parse(fs.readFileSync(file, "utf8")));
+    if (canonicalRoot(info.root) !== canonicalRoot(root) || info.url !== `http://127.0.0.1:${info.port}`) return null;
     return info;
-  } catch {
-    return null;
+  } catch { return null; }
+}
+
+async function probe(info: DaemonInfo): Promise<z.infer<typeof LiveIdentity> | null> {
+  try {
+    const response = await fetch(`${info.url}/api/identity`, { signal: AbortSignal.timeout(1_500) });
+    if (!response.ok) return null;
+    const live = LiveIdentity.parse(await response.json());
+    return live.pid === info.pid && live.root === info.root && live.started_at === info.started_at ? live : null;
+  } catch { return null; }
+}
+
+export async function stopDaemon(root: string): Promise<boolean> {
+  const info = readDaemonInfo(root);
+  if (!info) return false;
+  if (!await probe(info) || !info.shutdown_token) throw new Error("cannot verify this daemon; stop it from the version that started it");
+  const response = await fetch(`${info.url}/api/shutdown`, { method: "POST", headers: { authorization: `Bearer ${info.shutdown_token}` }, signal: AbortSignal.timeout(5_000) });
+  if (!response.ok) throw new Error(`daemon refused to stop: ${await response.text()}`);
+  for (let i = 0; i < 50; i++) {
+    if (!await probe(info)) return true;
+    await sleep(100);
   }
+  throw new Error("daemon did not stop in 5 seconds");
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 /** Connect to the project's daemon, starting it detached if it is not running. */
 export async function ensureDaemon(root: string, opts: { start?: boolean; timeoutMs?: number } = {}): Promise<DaemonInfo> {
-  const existing = readDaemonInfo(root);
+  root = canonicalRoot(root);
+  const paths = toolPaths();
+  const check = async (): Promise<DaemonInfo | null> => {
+    const info = readDaemonInfo(root);
+    if (!info) return null;
+    const live = await probe(info);
+    if (!live) {
+      try { process.kill(info.pid, 0); } catch { return null; }
+      throw new Error(`existing daemon cannot be identified; stop it from its original version before using ${paths.identity.root}`);
+    }
+    if (!live.tool || live.tool.build !== paths.identity.build || live.tool.version !== paths.identity.version || live.tool.root !== paths.identity.root) {
+      throw new Error(`daemon belongs to another build or installation; run prepare-dev stop --root ${JSON.stringify(root)}, then retry`);
+    }
+    return info;
+  };
+  const existing = await check();
   if (existing) return existing;
   if (opts.start === false) throw new Error(`no daemon running for ${root} (run: prepare-dev serve)`);
-  const repo = toolRepoRoot();
-  const tsx = path.join(repo, "node_modules", ".bin", "tsx");
-  const cli = path.join(repo, "packages", "cli", "src", "index.ts");
   const logDir = path.join(root, ".prepare-dev");
   fs.mkdirSync(logDir, { recursive: true });
   const log = fs.openSync(path.join(logDir, "daemon.log"), "a");
-  const child = spawn(tsx, [cli, "serve", "--root", root], {
-    cwd: repo,
-    detached: true,
-    stdio: ["ignore", log, log],
+  const child = spawn(process.execPath, [...paths.cliArgs, "serve", "--root", root], {
+    cwd: paths.identity.root, detached: true, stdio: ["ignore", log, log],
     env: { ...process.env, PREPARE_DEV_DETACHED: "1" },
   });
+  fs.closeSync(log);
+  let spawnError: Error | null = null;
+  child.once("error", (error) => { spawnError = error; });
   child.unref();
   const deadline = Date.now() + (opts.timeoutMs ?? 15_000);
   while (Date.now() < deadline) {
-    await sleep(150);
-    const info = readDaemonInfo(root);
+    if (spawnError) throw spawnError;
+    await sleep(100);
+    const info = await check();
     if (info) return info;
   }
-  throw new Error(`daemon did not start within ${opts.timeoutMs ?? 15_000}ms (see ${path.join(logDir, "daemon.log")})`);
+  throw new Error(`daemon did not start (see ${path.join(logDir, "daemon.log")})`);
 }
 
 export class ApiClient {

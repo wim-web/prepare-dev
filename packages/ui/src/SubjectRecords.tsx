@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
+import { Markdown } from "./QuestionView";
 import { api, errorMessage, type RecordView, type SubjectRef } from "./api";
 
 export function SubjectRecords({ subjects }: { subjects: SubjectRef[] }) {
   return (
-    <section className="panel">
-      <h3>対象レコード</h3>
+    <details className="panel references">
+      <summary>関連する記録（補足）</summary>
       {subjects.length === 0 ? <p className="muted">対象レコードはありません。</p> : subjects.map((s) => <SubjectRecord key={s.id} subject={s} />)}
-    </section>
+    </details>
   );
 }
 
@@ -32,7 +33,7 @@ function SubjectRecord({ subject }: { subject: SubjectRef }) {
   }, [open, record, error, subject.id]);
 
   const title = record ? String(record.frontmatter.title ?? record.id) : null;
-  const drifted = record !== null && record.rev !== subject.rev;
+  const drifted = record !== null && (record.rev !== subject.rev || record.sha256 !== subject.sha256);
 
   return (
     <details className="record" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
@@ -51,7 +52,7 @@ function SubjectRecord({ subject }: { subject: SubjectRef }) {
             {record.kind} · rev {record.rev}
             {record.frontmatter.status ? ` · ${record.frontmatter.status}` : ""} · {record.sha256.slice(0, 12)}
           </p>
-          <pre className="record-body">{record.body.trim() ? record.body : "（本文なし）"}</pre>
+          <Markdown>{record.body.trim() ? record.body : "（本文なし）"}</Markdown>
         </div>
       ) : null}
     </details>

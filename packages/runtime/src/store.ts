@@ -4,11 +4,15 @@ import { EventEmitter } from "node:events";
 import {
   BaseFrontmatter,
   DecisionFrontmatter,
+  DesignFrontmatter,
+  DiscoveryFrontmatter,
   Event,
   type EventOf,
   ID_PREFIXES,
   ProjectConfig,
   Question,
+  RequirementFrontmatter,
+  ReviewFrontmatter,
   RunRecord,
   SpecFrontmatter,
   type RecordKind,
@@ -31,6 +35,15 @@ export const KIND_DIRS: Record<RecordKind, string> = {
   review: "reviews",
   record: "records",
   proposal: "proposals",
+};
+
+const KIND_SCHEMAS: Partial<Record<RecordKind, { parse(v: unknown): unknown }>> = {
+  decision: DecisionFrontmatter,
+  spec: SpecFrontmatter,
+  requirement: RequirementFrontmatter,
+  discovery: DiscoveryFrontmatter,
+  design: DesignFrontmatter,
+  review: ReviewFrontmatter,
 };
 
 export interface IndexEntry {
@@ -351,14 +364,21 @@ export class Store {
     const prefix = ID_PREFIXES[kind];
     const used = new Set(this.usedIds());
     if (kind === "question") for (const f of this.listJsonIds(this.questionsDir)) used.add(f);
-    if (kind === "run") for (const f of this.listJsonIds(this.runsDir)) used.add(f);
+    if (kind === "run") {
+      for (const f of this.listJsonIds(this.runsDir)) used.add(f);
+      if (fs.existsSync(this.runsDir)) {
+        for (const entry of fs.readdirSync(this.runsDir, { withFileTypes: true })) {
+          if (entry.isDirectory() && /^RUN-\d+$/.test(entry.name)) used.add(entry.name);
+        }
+      }
+    }
     return nextId(prefix, used);
   }
 
   private validateFrontmatter(fm: Record<string, unknown>): BaseFrontmatter & Record<string, unknown> {
     const base = BaseFrontmatter.parse(fm);
-    if (base.kind === "decision") return DecisionFrontmatter.parse(fm) as BaseFrontmatter & Record<string, unknown>;
-    if (base.kind === "spec") return SpecFrontmatter.parse(fm) as BaseFrontmatter & Record<string, unknown>;
+    const schema = KIND_SCHEMAS[base.kind];
+    if (schema) return schema.parse(fm) as BaseFrontmatter & Record<string, unknown>;
     return base as BaseFrontmatter & Record<string, unknown>;
   }
 

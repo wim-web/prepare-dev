@@ -333,4 +333,25 @@ theorem quiescent_consistent (s : State) (h : Reachable s) (hq : s.inflight = fa
     have := hap a ha
     cases hd : a.appliedAs <;> cases hc : s.committed a.id <;> simp_all
 
+/-- C2 includes both the snapshot property and the guard at each new commit. -/
+theorem committed_safety (s : State) (h : Reachable s) :
+    (∀ i ∈ s.committedIntents, ∃ a ∈ s.answers, a.id = i.answer ∧ a.stale = false ∧
+      (∃ q ∈ s.questions, q.id = a.question ∧ q.subjects = i.subjects) ∧
+      (∀ q ∈ s.questions, q.id = a.question → q.subjects = i.subjects)) ∧
+    (∀ (s' : State) (act : Action) (r : Result), step s act = (s', r) →
+      ∀ tx, hasCommit s'.journal tx → ¬ hasCommit s.journal tx →
+        s'.records = s.records ∧
+        ∃ i ∈ s'.intents, i.txid = tx ∧ s.subjectsMatch i.subjects = true) := by
+  exact ⟨committed_matches_snapshot s h,
+    fun _ _ _ hstep tx hnew hold => step_commit_guard hstep tx hnew hold⟩
+
+/-- C3 includes answer preservation as well as the completed-state invariant. -/
+theorem quiescent_with_answers (s : State) (h : Reachable s) :
+    (∀ act, ∀ a ∈ s.answers, ∃ a' ∈ (step s act).1.answers, a'.id = a.id) ∧
+    (s.inflight = false →
+      (∀ a ∈ s.answers, a.appliedAs ≠ none ↔ s.committed a.id = true) ∧
+      (∀ tx : TxId, (∃ d ∈ s.decisions, d.txid = tx) ↔ hasCommit s.journal tx) ∧
+      s.pendingFromFiles = s.pendingFromJournal) := by
+  exact ⟨answers_monotone s, quiescent_consistent s h⟩
+
 end PrepareDev.Spec

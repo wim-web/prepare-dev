@@ -31,6 +31,9 @@ import PrepareDev
 #print axioms PrepareDev.Spec.quiescent_consistent
 #print axioms PrepareDev.Spec.step_commit_guard
 #print axioms PrepareDev.Spec.answers_monotone
+#print axioms PrepareDev.Spec.committed_safety
+#print axioms PrepareDev.Spec.quiescent_with_answers
+#print axioms PrepareDev.Recovery.recovery_safe
 EOF
 out=$(lake env lean --json "$axfile")
 echo "$out" | grep -o "'[^']*' depends on axioms: \[[^]]*\]" || true
@@ -38,8 +41,8 @@ if echo "$out" | grep -q '"severity":"error"'; then
   echo "$out"; echo "FAIL: lean reported an error"; exit 1
 fi
 n=$(echo "$out" | grep -c "depends on axioms" || true)
-if [ "$n" -ne 5 ]; then
-  echo "$out"; echo "FAIL: expected 5 axiom reports, got $n"; exit 1
+if [ "$n" -ne 8 ]; then
+  echo "$out"; echo "FAIL: expected 8 axiom reports, got $n"; exit 1
 fi
 bad=$(echo "$out" | grep -o 'depends on axioms: \[[^]]*\]' \
   | sed -e 's/depends on axioms: \[//' -e 's/\]//' | tr ',' '\n' | tr -d ' ' \
@@ -56,5 +59,10 @@ lines=$(wc -l < "$gen" | tr -d ' ')
 if [ "$lines" -eq 0 ]; then echo "FAIL: generator produced no output"; exit 1; fi
 head -3 "$gen"
 echo "ok ($lines lines)"
+
+echo "== 5. recovery traces"
+lake exe prepare-model recovery > .lake/tmp/recovery.jsonl
+cmp traces/recovery.jsonl .lake/tmp/recovery.jsonl
+echo "ok (recovery traces match the checked model)"
 
 echo "ALL CHECKS PASSED"

@@ -1,5 +1,5 @@
 import type { VerificationPlugin } from "@prepare-dev/core";
-import { Questions, type RecoveryReport } from "./questions.js";
+import { Questions, type RecoveryHooks, type RecoveryReport } from "./questions.js";
 import { Runs } from "./runs.js";
 import { Store } from "./store.js";
 import { Trace } from "./trace.js";
@@ -7,6 +7,7 @@ import { Status } from "./status.js";
 
 export interface RuntimeOptions {
   plugins?: VerificationPlugin[];
+  recoveryHooks?: RecoveryHooks;
 }
 
 /**
@@ -21,10 +22,10 @@ export class Runtime {
   readonly status: Status;
   readonly recovery: RecoveryReport;
 
-  private constructor(store: Store, plugins: VerificationPlugin[]) {
+  private constructor(store: Store, plugins: VerificationPlugin[], recoveryHooks?: RecoveryHooks) {
     this.store = store;
     this.questions = new Questions(store);
-    this.recovery = this.questions.recover();
+    this.recovery = this.questions.recover(recoveryHooks);
     this.runs = new Runs(store, plugins);
     this.trace = new Trace(store, this.questions, this.runs);
     this.status = new Status(store, this.questions, this.runs, this.trace);
@@ -32,7 +33,7 @@ export class Runtime {
 
   static open(root: string, opts: RuntimeOptions = {}): Runtime {
     const store = Store.open(root);
-    return new Runtime(store, opts.plugins ?? []);
+    return new Runtime(store, opts.plugins ?? [], opts.recoveryHooks);
   }
 
   get root(): string {
