@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Checks for the Lean model: no escape hatches, full build, axiom audit of
-# the SPEC-0001 theorems, and a smoke test of the trace generator.
+# the SPEC-0001 theorems, and that the committed conformance traces are what the
+# model generates.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export PATH="$HOME/.elan/bin:$PATH"
@@ -52,17 +53,29 @@ if [ -n "$bad" ]; then
 fi
 echo "ok (only propext / Classical.choice / Quot.sound)"
 
-echo "== 4. generator smoke test"
-gen=.lake/tmp/smoke.jsonl
-lake exe prepare-model gen --depth 4 --max-traces 50 > "$gen"
-lines=$(wc -l < "$gen" | tr -d ' ')
-if [ "$lines" -eq 0 ]; then echo "FAIL: generator produced no output"; exit 1; fi
-head -3 "$gen"
-echo "ok ($lines lines)"
+echo "== 4. conformance traces"
+# the runtime tests replay these files (SPEC-0001 C4); they must be what this model generates
+for depth in 4 6; do
+  lake exe prepare-model gen --depth "$depth" > ".lake/tmp/depth-$depth.jsonl"
+  cmp "traces/depth-$depth.jsonl" ".lake/tmp/depth-$depth.jsonl"
+done
+echo "ok (depth-4 and depth-6 traces match the checked model)"
 
 echo "== 5. recovery traces"
 lake exe prepare-model recovery > .lake/tmp/recovery.jsonl
 cmp traces/recovery.jsonl .lake/tmp/recovery.jsonl
 echo "ok (recovery traces match the checked model)"
+
+echo "== 6. model digest"
+# recorded only after the comparisons above: the Go tests (internal/runtime, C4 and C5)
+# fail when the model no longer has the digest its traces were checked against
+model_digest() {
+  find . -path ./.lake -prune -o -type d -name '.*' ! -name . -prune -o -type f \( -name '*.lean' -o -name lakefile.toml -o -name lean-toolchain -o -name lake-manifest.json \) -print \
+    | sed 's|^\./||' | LC_ALL=C sort \
+    | while IFS= read -r f; do printf '%s\n%s\n' "$f" "$(shasum -a 256 "$f" | cut -d' ' -f1)"; done \
+    | shasum -a 256 | cut -d' ' -f1
+}
+model_digest > traces/model.sha256
+echo "ok ($(cat traces/model.sha256))"
 
 echo "ALL CHECKS PASSED"

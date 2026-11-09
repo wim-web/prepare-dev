@@ -1,11 +1,11 @@
 ---
 name: prepare-dev
-description: Use when working with prepare-dev on a product's intent, requirements, decisions, design, specs, review, or verification evidence. Use its CLI from the skill; MCP is an optional transport and is not required. Entry point that picks the stage and defines the shared rules for asking the human and recording through the runtime.
+description: Use when working with prepare-dev on a product's intent, requirements, decisions, design, specs, review, or verification evidence. Use its CLI from the skill; there is no MCP entry. Entry point that picks the stage and defines the shared rules for asking the human and recording through the runtime.
 ---
 
 # prepare-dev（入口）
 
-skill から `prepare-dev` CLI を実行し、共通の runtime を通して問題の整理から要求、設計、検査可能な仕様、実装、検証結果までを `prepare/` の記録につなぐ。MCP 登録は不要。MCP が利用できる場合は同じ操作を呼ぶ追加経路として使える。この skill は入口で、工程の選択と共通規則を決める。工程ごとの手順は `prepare-discover`、`prepare-requirements`、`prepare-design`、`prepare-specify`、`prepare-verify`、`prepare-review` にある。
+skill から `prepare-dev` CLI を実行し、共通の runtime を通して問題の整理から要求、設計、検査可能な仕様、実装、検証結果までを `prepare/` の記録につなぐ。MCP の入口はない。この skill は入口で、工程の選択と共通規則を決める。工程ごとの手順は `prepare-discover`、`prepare-requirements`、`prepare-design`、`prepare-specify`、`prepare-verify`、`prepare-review` にある。
 
 本文と工程の skills にある `record_get`、`question_create`、`verify_run` などは runtime の操作名。CLI では下の対応を使う。
 
@@ -34,6 +34,7 @@ skill から `prepare-dev` CLI を実行し、共通の runtime を通して問�
 - **記録同士は `links` でつなぐ。** `derived_from`（`REQ-*` → `DIS-*`、`DES-*` → `REQ-*`）、`specifies`（`SPEC-*` → `REQ-*`）、`rationale_for`（`DEC-*` → 対象）。`trace` は `links` を両方向にたどる（`links` に返す）ので、質問の id を記録に書き戻す必要はない。質問は `subjects` から引ける。
 - **理由を残す。** 採用した案だけでなく、棄却した案とその理由、判断の根拠を `DEC-*` に書く。前の工程で決まったことを後の工程で黙って変えない（下の「前段の決定との照合」）。
 - **検証を通すために要求を黙って弱めない。** 要求の誤りを見つけたら、その要求を対象にした質問を作り、人の判断を `DEC-*` に残してから直す。
+- **記録を書く作業コピーは一つ。** ID は作業コピーごとに同じ番号から振られ、二つのブランチや worktree で書いた `prepare/` はマージで衝突する。並行して作業するときは、prepare-dev を使う作業コピーを一つに決める。衝突したらマージのときに直す（同じ番号で中身の違う記録を両方残すなら、片方は新しい番号で作り直す）。直した結果がおかしければ `status` の problems に出て、デーモンは何も書かない。
 - **レビューは証拠ではない。** レビューの指摘が解決しても `RUN-*` の `result` は変わらない。証拠はツールの実出力からだけ作る。
 
 ## 質問の流れ
@@ -62,8 +63,10 @@ skill から `prepare-dev` CLI を実行し、共通の runtime を通して問�
 
 質問は `q create --prompt-file question.md --options-file options.json --subject REQ-ID` で登録できる。本文には、平易な題、背景、何を決めるか、人の判断が必要な理由を書く。比較が役立つ場合は Markdown の表を使う。各選択肢は `key`・人が読む `label`・選ぶとどうなるかの `summary`・`recommended`・推奨理由の `reason` を持つ。記録の ID や内部用語を読まないと判断できない質問にしない。画面レイアウトの JSON は作らない。
 
-`prepare-dev record create|get|put|list`、`q create|wait|pending|ack|apply|close|cancel`、`verify run|wait|get`、`trace`、`bundle`、`status` を使う。`record_list` は `record list`、`review_bundle` は `bundle` に対応する。`--root` に対象リポジトリを渡す。CLI が未導入の開発中は prepare-dev の checkout で `pnpm cli` を使える。MCP を有効にする必要はない。
+`prepare-dev record create|get|put|list`、`q create|wait|pending|ack|apply|close|cancel`、`verify run|wait|get`、`trace`、`bundle`、`status` を使う。`record_list` は `record list`、`review_bundle` は `bundle` に対応する。`--root` に対象リポジトリを渡す。CLI が未導入の開発中は prepare-dev の checkout で `go run ./cmd/prepare-dev` を使える。
 
+- 回答は人が判断画面で行う。CLI に回答の操作はない。
+- `verify run --wait`・`verify wait`・`verify get`・`trace` は、入力ファイルの一覧を件数に、不一致と実行したテストの一覧を先頭の数件に縮めて出力する。`verify list` は実行ごとに一行の要約を返す。すべてが必要なときだけ `--json` を付ける。
 - frontmatter は `--fm key=value`（値が `[` か `{` で始まれば JSON）か、`--fm-file <json>`（オブジェクトをまとめて渡す。`findings` や `claims` のような長い配列はこちら）。`status` も `--fm status=proposed` で設定する。
 - 本文は `--body-file <path>`。`put` は本文を省けば現在の本文を保つ。
 - `record put ID` には、編集前に `record get ID` で読んだ `--expected-rev N --expected-sha256 HASH` が必須。他者による変更を検出できるよう、更新直前に読み直して期待値を差し替えない。衝突したら変更内容を読み直して反映案を作り直す。

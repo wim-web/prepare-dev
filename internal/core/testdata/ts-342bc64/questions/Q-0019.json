@@ -1,0 +1,51 @@
+{
+  "id": "Q-0019",
+  "rev": 1,
+  "state": "cancelled",
+  "kind": "single_choice",
+  "created_at": "2026-11-08T16:31:03.260Z",
+  "created_by": {
+    "host": "cli"
+  },
+  "subjects": [
+    {
+      "id": "DES-0001",
+      "rev": 5,
+      "sha256": "739a89c10ba9326c5c0163f71c22085036aaf4b43b278413380000e1c4dd5368"
+    },
+    {
+      "id": "REQ-0002",
+      "rev": 2,
+      "sha256": "b439131a7fe06e5a770d11ccb47c713f8b33efcbf8eabb7003e5341aa4aa61ef"
+    },
+    {
+      "id": "REQ-0005",
+      "rev": 2,
+      "sha256": "a2427e8d9fe171cef8dc21e60d9747300927efaf78a0ce1c37bc5b987d5f93b8"
+    }
+  ],
+  "prompt": "DES-0001 rev 5 決定点 7: init --migrate（Q-0003 m-option の移行）が、旧 init が対象リポジトリに置いた skills の絶対 symlink（.agents/skills/<name>。name は道具リポジトリの skill 名と一致し、リンク先が絶対パスのものだけ。実体のディレクトリと相対 symlink は対象外）を消すか。比較は DES-0001 §5.5、§6 決定点 7。",
+  "options": [
+    {
+      "key": "migrate-remove-skill-links",
+      "label": "7a: 消す（removed に列挙する）",
+      "recommended": true,
+      "reason": "G では skills は利用者単位の置き場にあるので、対象内の絶対 symlink は機械固有の残骸。DIS-0001 の四つの機械固有の情報を全部消せる。利用者が自分で張った同名の絶対 symlink も消える点が欠点"
+    },
+    {
+      "key": "migrate-report-only",
+      "label": "7b: 消さず、legacy として報告するだけ",
+      "reason": "消し間違いが無い。残骸が残り、対象リポジトリが絶対 symlink をコミットしうる（旧 init は skills を .gitignore に書いていない）"
+    }
+  ],
+  "allow_free_text": true,
+  "ui": {
+    "spec": null
+  },
+  "answers": [],
+  "cancelled": {
+    "at": "2026-11-08T17:03:45.759Z",
+    "reason": "Q-0002 の回答（CLI として配布し skill から CLI を実行、MCP 登録を前提にしない）で前提が変わったため取り下げる。要求と設計を整理し直してから、必要なものだけを分かる形で聞き直す",
+    "replaced_by": null
+  }
+}

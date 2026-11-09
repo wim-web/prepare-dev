@@ -1,0 +1,69 @@
+{
+  "id": "Q-0028",
+  "rev": 1,
+  "state": "applied",
+  "kind": "single_choice",
+  "created_at": "2026-11-08T23:54:37.235Z",
+  "created_by": {
+    "host": "cli"
+  },
+  "subjects": [
+    {
+      "id": "DEC-0004",
+      "rev": 1,
+      "sha256": "6cbcdfe203b0b6a9cbca80bd66da1a73a2b4703b9c5f978a83ae9d5464dcf432"
+    },
+    {
+      "id": "REQ-0010",
+      "rev": 2,
+      "sha256": "64945ef0b43e18bc1474cfe8ceccea5b15a42cb218133ae102b0d714a777101d"
+    }
+  ],
+  "prompt": "# MCP の入口をなくすか\n\n## 背景\n\nprepare-dev には、CLI とは別に、同じ操作を MCP のツールとして出す入口（`prepare-dev mcp`）があります。以前の判断で、エージェントは skill に従って CLI を使い、MCP の登録は必須にしないと決めました。今の使い方では MCP を通る流れはなく、MCP でしかできない操作もありません。\n\nこのリポジトリには、初期の init が書いた `.mcp.json` と `.codex/config.toml` の登録が残っていて、Claude Code と Codex に prepare-dev の MCP がつながっています。\n\n## 決めること\n\nprepare-dev に MCP の入口を残すか、なくすか。\n\n## 人の判断が必要な理由\n\n外から使える入口を一つ減らす判断で、prepare-dev をどんな環境から使うつもりかによって答えが変わるためです。\n",
+  "options": [
+    {
+      "key": "drop",
+      "label": "なくす",
+      "summary": "MCP の入口は作らない。エージェントは CLI だけを使う。このリポジトリの .mcp.json と .codex/config.toml にある prepare-dev の登録も消す。",
+      "recommended": true,
+      "reason": "CLI と同じ操作の重複で、今の流れでは使っていない。作り直す量と確かめる範囲が減る。"
+    },
+    {
+      "key": "keep",
+      "label": "残す",
+      "summary": "CLI と同じ操作を MCP のツールとして出す入口を残す。Go で作り直す場合は、MCP の入口も Go で作る。",
+      "reason": "CLI を実行できず、MCP しか使えない環境から使う予定があるなら必要になる。"
+    }
+  ],
+  "allow_free_text": true,
+  "answers": [
+    {
+      "answer_id": "ANS-0028-1",
+      "answered_at": "2026-11-09T00:45:44.771Z",
+      "subjects_at_answer": [
+        {
+          "id": "DEC-0004",
+          "rev": 1,
+          "sha256": "6cbcdfe203b0b6a9cbca80bd66da1a73a2b4703b9c5f978a83ae9d5464dcf432"
+        },
+        {
+          "id": "REQ-0010",
+          "rev": 2,
+          "sha256": "64945ef0b43e18bc1474cfe8ceccea5b15a42cb218133ae102b0d714a777101d"
+        }
+      ],
+      "stale": false,
+      "choice": [
+        "drop"
+      ],
+      "text": null,
+      "received_at": "2026-11-09T00:46:35.224Z",
+      "applied_as": {
+        "decision_id": "DEC-0007",
+        "txid": "9b696f95ecea3690"
+      },
+      "closed": null
+    }
+  ],
+  "cancelled": null
+}

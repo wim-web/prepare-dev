@@ -1,6 +1,0 @@
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "rootDir": "src", "outDir": "dist" },
-  "include": ["src"],
-  "references": [{ "path": "../core" }, { "path": "../runtime" }, { "path": "../mcp" }, { "path": "../../plugins/lean4" }, { "path": "../../plugins/vitest" }]
-}

@@ -12,7 +12,7 @@ This refines the operation-level model: no open transaction alone does not mean
 cleanup is complete. Normal operations require `recovery_pending = false`.
 Core Lean only (toolchain in `lean-toolchain`, no Mathlib).
 
-- Build and check: `bin/test` (token scan, `lake build`, axiom audit, generator smoke test).
+- Build and check: `bin/test` (token scan, `lake build`, axiom audit, and a comparison of `traces/` with freshly generated traces).
 - Generate conformance traces (SPEC-0001 Section 4, JSON Lines on stdout):
   `lake exe prepare-model gen --depth 6 [--max-traces 2000] [--seed 0]`
   Enumeration is a deterministic DFS over R1/R2, Q1/Q2, A1/A2; `--seed` rotates the action order.

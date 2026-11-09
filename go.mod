@@ -1,0 +1,10 @@
+module github.com/wim-web/prepare-dev
+
+go 1.27.3
+
+require (
+	github.com/evanw/esbuild v0.28.2
+	go.yaml.in/yaml/v3 v3.0.6
+)
+
+require golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect

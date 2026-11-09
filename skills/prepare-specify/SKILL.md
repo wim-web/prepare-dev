@@ -10,7 +10,7 @@ description: Use after design to turn requirements into checkable claims (contra
 ## 入力
 
 - `REQ-*`（受入条件）、`DES-*`（検証計画、状態の置き場所）、`DEC-*`。
-- 使うプラグインの書き方: `prepare-dev guidance lean4` または `prepare-dev guidance vitest`。配布物に同梱した文書から `verify_run` に渡す参照の形式を確認する。
+- 使うプラグインの書き方: `prepare-dev guidance lean4`、`prepare-dev guidance vitest`、`prepare-dev guidance gotest`。配布物に同梱した文書から `verify_run` に渡す参照の形式を確認する。
 
 ## 主張の種類
 

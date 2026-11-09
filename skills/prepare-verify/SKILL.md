@@ -10,7 +10,7 @@ description: Use after a spec is approved to create or update the code, proofs a
 ## 入力
 
 - `SPEC-*`（`record_get` で版を控える）、`DES-*` の実装計画、`DEC-*`。
-- プラグインの書き方: `prepare-dev guidance lean4` または `prepare-dev guidance vitest`。配布物に同梱した文書を読む。対象プロジェクトに prepare-dev のソースを置く必要はない。
+- プラグインの書き方: `prepare-dev guidance lean4`、`prepare-dev guidance vitest`、`prepare-dev guidance gotest`。配布物に同梱した文書を読む。対象プロジェクトに prepare-dev のソースを置く必要はない。
 
 ## 手順
 

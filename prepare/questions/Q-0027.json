@@ -1,0 +1,75 @@
+{
+  "id": "Q-0027",
+  "rev": 1,
+  "state": "applied",
+  "kind": "single_choice",
+  "created_at": "2026-11-08T23:54:36.447Z",
+  "created_by": {
+    "host": "cli"
+  },
+  "subjects": [
+    {
+      "id": "REQ-0010",
+      "rev": 2,
+      "sha256": "64945ef0b43e18bc1474cfe8ceccea5b15a42cb218133ae102b0d714a777101d"
+    },
+    {
+      "id": "DES-0003",
+      "rev": 3,
+      "sha256": "d6ba0f5333aa52bfa8750ad9c642577824e84cdd8b5bd4d3c86db9bf390d243d"
+    }
+  ],
+  "prompt": "# prepare-dev の本体を Go で作り直すか\n\n## 背景\n\nprepare-dev の本体（記録を管理するデーモン、CLI、検証プラグイン）は TypeScript と Node.js で書かれています。そのため、使う人のマシンに Node.js 26 以上が必要です。\n\nNode.js を選んだ当初の理由は、判断画面を json-render で作ること、本体と画面で型を共有すること、MCP を中心に使うことでした。今はどれも当てはまりません。json-render はやめ、型の共有は実装しておらず、使い方は CLI 中心に変わりました。\n\n## 決めること\n\n本体をどう作って配るか。判断画面はどの案でも React のままで、Vite で HTML ファイル 1 枚にビルドします。\n\n| 案 | 使う人に Node.js が要るか | 配るもの | かかる手間 |\n| --- | --- | --- | --- |\n| Go で作り直す | 要らない | 実行ファイル一つ（画面の HTML を埋め込む） | 本体約 3,500 行とテストの書き直し、検証のやり直し |\n| Node.js のまま一つの実行ファイルにする | 要らない | 実行ファイル一つ（Node.js 本体ごと入るため 140MB を超える） | 配り方の作り直しだけ |\n| 今のまま | 要る（26 以上） | npm の tarball | なし |\n\n## 人の判断が必要な理由\n\n書き直しの手間と、使う人に求める環境のどちらを取るかの判断で、調べても答えは出ません。チャットで「じゃあ go でいいです」と答えてもらった内容を、判断の記録として残すための質問です。\n",
+  "options": [
+    {
+      "key": "go",
+      "label": "Go で作り直す",
+      "summary": "本体を Go で書き直し、画面の HTML を埋め込んだ実行ファイル一つで配る。使う人に Node.js は要らない。Node.js は画面のビルドとテストにだけ使う。",
+      "recommended": true,
+      "reason": "使う人に Node.js を求めずに済む。本体を TypeScript にしておく理由はもう残っていない。検証プラグインが増える前の今が、移す手間がいちばん小さい。"
+    },
+    {
+      "key": "node-single-binary",
+      "label": "Node.js のまま一つの実行ファイルにする",
+      "summary": "コードは TypeScript のまま、Node.js の単一実行ファイルの機能で配る。使う人に Node.js は要らないが、ファイルが 140MB を超える。",
+      "reason": "書き直しは要らないが、本体を TypeScript にしておく理由がないまま残る。"
+    },
+    {
+      "key": "keep",
+      "label": "今のまま",
+      "summary": "npm の tarball で配り、使う人に Node.js 26 以上を入れてもらう。",
+      "reason": "手間はかからないが、Node.js を使わないプロジェクトでも Node.js 26 以上が必要になる。"
+    }
+  ],
+  "allow_free_text": true,
+  "answers": [
+    {
+      "answer_id": "ANS-0027-1",
+      "answered_at": "2026-11-09T00:45:27.191Z",
+      "subjects_at_answer": [
+        {
+          "id": "REQ-0010",
+          "rev": 2,
+          "sha256": "64945ef0b43e18bc1474cfe8ceccea5b15a42cb218133ae102b0d714a777101d"
+        },
+        {
+          "id": "DES-0003",
+          "rev": 3,
+          "sha256": "d6ba0f5333aa52bfa8750ad9c642577824e84cdd8b5bd4d3c86db9bf390d243d"
+        }
+      ],
+      "stale": false,
+      "choice": [
+        "go"
+      ],
+      "text": null,
+      "received_at": "2026-11-09T00:46:33.756Z",
+      "applied_as": {
+        "decision_id": "DEC-0006",
+        "txid": "405415df21f62702"
+      },
+      "closed": null
+    }
+  ],
+  "cancelled": null
+}

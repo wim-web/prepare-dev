@@ -1,0 +1,73 @@
+{
+  "id": "Q-0001",
+  "rev": 1,
+  "state": "applied",
+  "kind": "single_choice",
+  "created_at": "2026-11-08T02:27:40.451Z",
+  "created_by": {
+    "host": "cli"
+  },
+  "subjects": [
+    {
+      "id": "REQ-0001",
+      "rev": 1,
+      "sha256": "2bc07c3da72d314e5124b88c47776d1fed049c55b7ff90e241fd105f2c67facc"
+    },
+    {
+      "id": "SPEC-0001",
+      "rev": 2,
+      "sha256": "6b28b2592848c70099d0799e34ae21fd32d0df614f82dd025d0da94f2583a391"
+    }
+  ],
+  "prompt": "回答の対象版が質問作成後に変わっていた場合、その回答をどう扱うか",
+  "options": [
+    {
+      "key": "hold",
+      "label": "保存して再確認対象に残す（自動では反映しない）",
+      "recommended": true
+    },
+    {
+      "key": "apply",
+      "label": "そのまま反映する",
+      "recommended": false
+    },
+    {
+      "key": "discard",
+      "label": "破棄する",
+      "recommended": false
+    }
+  ],
+  "allow_free_text": true,
+  "ui": {
+    "spec": null
+  },
+  "answers": [
+    {
+      "answer_id": "ANS-0001-1",
+      "answered_at": "2026-11-08T02:28:02.688Z",
+      "subjects_at_answer": [
+        {
+          "id": "REQ-0001",
+          "rev": 1,
+          "sha256": "2bc07c3da72d314e5124b88c47776d1fed049c55b7ff90e241fd105f2c67facc"
+        },
+        {
+          "id": "SPEC-0001",
+          "rev": 2,
+          "sha256": "6b28b2592848c70099d0799e34ae21fd32d0df614f82dd025d0da94f2583a391"
+        }
+      ],
+      "stale": false,
+      "choice": [
+        "hold"
+      ],
+      "text": "古い版への回答を自動で判断にしない。再確認で現在版を読み直す。",
+      "received_at": "2026-11-08T02:28:21.301Z",
+      "applied_as": {
+        "decision_id": "DEC-0001",
+        "txid": "bed7445173ac2c28"
+      },
+      "closed": null
+    }
+  ]
+}

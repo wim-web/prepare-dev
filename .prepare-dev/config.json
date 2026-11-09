@@ -1,8 +1,31 @@
 {
   "records_dir": "prepare",
-  "wait": { "default_timeout_ms": 50000 },
+  "wait": {
+    "default_timeout_ms": 50000
+  },
   "plugins": {
-    "lean4": { "project_dir": "model", "allowed_axioms": ["propext", "Classical.choice", "Quot.sound"] },
-    "vitest": { "project_dir": ".", "impl_files": ["packages/runtime/src/questions.ts", "packages/runtime/src/store.ts", "packages/core/src/schemas.ts"] }
+    "lean4": {
+      "project_dir": "model",
+      "allowed_axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    "vitest": {
+      "project_dir": "ui"
+    },
+    "gotest": {
+      "input_packages": [
+        "./cmd/prepare-dev"
+      ],
+      "impl_files": [
+        "model/**",
+        "ui/**"
+      ],
+      "env": {
+        "PREPARE_DEV_TRACES": "model/traces/depth-6.jsonl"
+      }
+    }
   }
 }

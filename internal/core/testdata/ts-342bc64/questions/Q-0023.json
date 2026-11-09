@@ -1,0 +1,51 @@
+{
+  "id": "Q-0023",
+  "rev": 1,
+  "state": "cancelled",
+  "kind": "single_choice",
+  "created_at": "2026-11-08T16:31:06.439Z",
+  "created_by": {
+    "host": "cli"
+  },
+  "subjects": [
+    {
+      "id": "SPEC-0002",
+      "rev": 5,
+      "sha256": "a1b098357c08abaff3e7c2f4e133e0de47e6ae1b40f3d7a1752f4bdb9a30b9e8"
+    },
+    {
+      "id": "REQ-0003",
+      "rev": 2,
+      "sha256": "70152a050f8ad5371dcc945a1b1e4f07ca8247b0714706c1db9da4d8f359f211"
+    }
+  ],
+  "prompt": "SPEC-0002 rev 5 C25: 非対象で待つ入口の起動時間と費用の検査の境界。Q-0003 q の推奨は「initialize の応答まで 1 秒以内」。実測（2026-11-08、本変更前の入口、デーモンは除く）は initialize まで 576〜652 ms、入口のラッパー（約 60 MB）と子（約 111 MB）の RSS の和が約 170 MB だった。DES-0001 §7 の「約 95 MB」は小さく、十セッションでは約 1.7 GB になる（Q-0003 s の判断材料に関わる）。pnpm test は実プロセスを並列に起動するので、その中で時間を測ると結果が揺れる。",
+  "options": [
+    {
+      "key": "perf-gated-strict",
+      "label": "PREPARE_DEV_PERF=1 のときだけ、中央値 1 秒以内・RSS の和 256 MB 未満で測る（SPEC-0002 rev 5 の前提）",
+      "recommended": true,
+      "reason": "Q-0003 q の推奨を弱めずに確かめられ、並列のテストの揺れを避けられる。verify_run で env を付けて別に実行する"
+    },
+    {
+      "key": "perf-loose-always",
+      "label": "pnpm test の中で毎回、2 秒・256 MB の緩い上限で測る",
+      "reason": "毎回の回帰の見張りになる。ただし 1 秒の目標そのものは確かめない"
+    },
+    {
+      "key": "perf-none",
+      "label": "起動時間と費用の主張を置かない",
+      "reason": "Q-0003 q が「目標なし」なら一貫する。費用の悪化は見えなくなる"
+    }
+  ],
+  "allow_free_text": true,
+  "ui": {
+    "spec": null
+  },
+  "answers": [],
+  "cancelled": {
+    "at": "2026-11-08T17:03:47.282Z",
+    "reason": "Q-0002 の回答（CLI として配布し skill から CLI を実行、MCP 登録を前提にしない）で前提が変わったため取り下げる。要求と設計を整理し直してから、必要なものだけを分かる形で聞き直す",
+    "replaced_by": null
+  }
+}

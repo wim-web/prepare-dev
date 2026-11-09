@@ -1,0 +1,64 @@
+{
+  "id": "Q-0009",
+  "rev": 1,
+  "state": "applied",
+  "kind": "single_choice",
+  "created_at": "2026-11-08T12:04:52.316Z",
+  "created_by": {
+    "host": "cli"
+  },
+  "subjects": [
+    {
+      "id": "DES-0001",
+      "rev": 3,
+      "sha256": "98d5f8b68c5b76b4b35455f788d1437e5492c628acf06c453bdedaf22cb2b61a"
+    }
+  ],
+  "prompt": "DES-0001 のレビューの進め方: レビュー役の起動は五回（round 1: zoom_out、comprehension、design_critic。round 2: zoom_out と design_critic の再確認）で予算の上限に達しました。round 2 は Major を二件出し（REV-0015/f1: init が利用者の対象一覧を e2e で汚す。REV-0016/f1: ツール無しの McpServer は tools capability の宣言が要る）、rev 3 で直しましたが、rev 3 は再確認していません（prepare-review の収束条件 (2) を形式的には満たしていない）。修正の根拠は MCP SDK のコードと scripts/e2e-crash.sh で確認済みです。経緯は DES-0001 §レビューの経緯。",
+  "options": [
+    {
+      "key": "proceed-without-recheck",
+      "label": "受容して進む: rev 3 を再確認せずに Specify へ進む",
+      "recommended": true,
+      "reason": "二件の修正はどちらも根拠をコードで確認した機械的な変更（capability の宣言一つと環境変数一つ）で、設計の構成は変えていない。再確認は実装後のレビューと prepare-verify のテストで代替できる"
+    },
+    {
+      "key": "add-recheck-round",
+      "label": "続ける: design_critic（と必要なら zoom_out）で REVIEW の round をもう一回行う",
+      "reason": "収束条件を形式どおり満たしたいとき。persona 一つで十万 token 前後の費用"
+    },
+    {
+      "key": "back-to-requirements",
+      "label": "前の工程へ戻る: 対象一覧（同意の関門）と非対象時の振る舞いを REQ-0003 に書き足してから設計をやり直す",
+      "reason": "決定点 6 が要求の追加に当たると考えるとき。Q-0003 s の回答と合わせて REQ-0003 を改訂する"
+    }
+  ],
+  "allow_free_text": true,
+  "ui": {
+    "spec": null
+  },
+  "answers": [
+    {
+      "answer_id": "ANS-0009-1",
+      "answered_at": "2026-11-08T15:37:23.841Z",
+      "subjects_at_answer": [
+        {
+          "id": "DES-0001",
+          "rev": 3,
+          "sha256": "98d5f8b68c5b76b4b35455f788d1437e5492c628acf06c453bdedaf22cb2b61a"
+        }
+      ],
+      "stale": false,
+      "choice": [
+        "add-recheck-round"
+      ],
+      "text": "チャットでの回答（2026-11-09）: 「いや全部つづけて」。DES-0001 と SPEC-0002 の両方でレビューを続ける。",
+      "received_at": null,
+      "applied_as": {
+        "decision_id": "DEC-0002",
+        "txid": "a48fcc458f04eeda"
+      },
+      "closed": null
+    }
+  ]
+}

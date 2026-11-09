@@ -8,7 +8,5 @@ dist/
 model/.lake/
 .DS_Store
 .prepare-dev/daemon.log
-
-# MCP registration written by `prepare-dev init` (contains machine-specific absolute paths)
-.mcp.json
-.codex/
+.prepare-dev/lease
+.prepare-dev/skills-backup/
