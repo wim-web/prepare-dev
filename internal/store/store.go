@@ -122,6 +122,10 @@ type Store struct {
 	// Blocked lists conflicting journal entries found when opening (for example after
 	// a merge kept both branches' lines). While it is non-empty nothing is written.
 	Blocked []string
+	// Unrecoverable lists apply transactions that recovery cannot finish because a file
+	// the journal cannot rebuild is gone (a question file, which holds the answers).
+	// Like Blocked, nothing is written while it is non-empty, and status shows them.
+	Unrecoverable []Problem
 	// OnDead, when set, is called once when an operation finds the store unusable
 	// (the lease or the journal changed under it); the daemon then stops.
 	OnDead func(reason string)
@@ -174,6 +178,7 @@ func Open(root string) (*Store, error) {
 		return nil, err
 	}
 	s.Blocked = append(ValidateJournal(s.events), s.foreignApplications()...)
+	s.Unrecoverable = s.unrecoverable()
 	s.rebuildIndex()
 	if err := s.ScanAll(); err != nil {
 		return nil, err
@@ -247,7 +252,42 @@ func (s *Store) assertWritable() error {
 	if len(s.Blocked) > 0 {
 		return core.Errf("conflict", "the journal has conflicting entries ("+s.Blocked[0]+"): prepare/ was merged from two working copies. Nothing is written until you "+repairHint)
 	}
+	if len(s.Unrecoverable) > 0 {
+		return core.Errf("conflict", "an apply transaction cannot be recovered ("+s.Unrecoverable[0].Message+"). Nothing is written until the file is back", "path", s.Unrecoverable[0].Path)
+	}
 	return nil
+}
+
+// unrecoverable lists the apply transactions whose question file is gone, cannot be read
+// or lacks their answer. Recovery cannot finish them, since the journal does not hold
+// the answers, so nothing may be written: recovery would write part of its work (an
+// abort, a decision file) and stop.
+func (s *Store) unrecoverable() []Problem {
+	var out []Problem
+	for _, intent := range s.Intents() {
+		rel := filepath.Join(s.Config.RecordsDir, "questions", intent.QuestionID+".json")
+		what := ""
+		q, err := s.ReadQuestion(intent.QuestionID)
+		var re *core.RuntimeError
+		switch {
+		case err != nil && errors.As(err, &re) && re.Code == "not_found":
+			what = "is missing"
+		case err != nil:
+			what = "cannot be read (" + firstLine(err.Error()) + ")"
+		default:
+			found := false
+			for _, a := range q.Answers {
+				found = found || a.AnswerID == intent.AnswerID
+			}
+			if !found {
+				what = "has no answer " + intent.AnswerID + " (an older version of the file?)"
+			}
+		}
+		if what != "" {
+			out = append(out, Problem{Path: rel, Message: fmt.Sprintf("transaction %s of %s needs %s, which %s: the journal does not hold the answers, so the file cannot be written again; bring it back (from git or a stash), or, if it cannot be, fix the transaction's lines in prepare/events.jsonl by hand, as after a merge", intent.TxID, intent.AnswerID, rel, what)})
+		}
+	}
+	return out
 }
 
 // ---------- journal ----------
@@ -488,6 +528,7 @@ func (s *Store) ScanAll() error {
 		s.Problems = append(s.Problems, Problem{Path: filepath.Join(s.Config.RecordsDir, "events.jsonl"),
 			Message: "prepare/ was merged from two working copies; nothing is written until you " + repairHint})
 	}
+	s.Problems = append(s.Problems, s.Unrecoverable...)
 	seen := map[string]string{} // id -> first path in this scan
 	for _, kind := range core.RecordKinds {
 		dir := core.KindDirs[kind]
@@ -517,6 +558,17 @@ func (s *Store) ScanAll() error {
 				}
 				s.Problems = append(s.Problems, Problem{Path: rel, Message: firstLine(err.Error())})
 			}
+		}
+	}
+	// a question file that cannot be read (broken JSON, an invalid question) is a problem
+	// too; the question list leaves it out, and status goes on with the others
+	for _, id := range listJSONIDs(s.QuestionsDir) {
+		if _, err := s.ReadQuestion(id); err != nil {
+			var re *core.RuntimeError
+			if errors.As(err, &re) && re.Code == "dead" {
+				return err
+			}
+			s.addProblem(filepath.Join(s.Config.RecordsDir, "questions", id+".json"), firstLine(err.Error()))
 		}
 	}
 	return nil
@@ -577,6 +629,15 @@ func (s *Store) scanFile(rel string) (*IndexEntry, error) {
 		entry.Path = rel // moved outside the runtime; keep version bookkeeping
 	}
 	if entry.SHA256 != sha {
+		if len(s.Blocked) > 0 || len(s.Unrecoverable) > 0 {
+			// nothing is written now, so the edit is not recorded (it is once writing
+			// resumes); the record still reads with the sha256 of its file, so that
+			// versions compare with the content on disk and no run or answer of an
+			// older version matches it
+			now := *entry
+			now.SHA256 = sha
+			return &now, nil
+		}
 		return s.recordExternalChange(entry, text, fm)
 	}
 	return entry, nil
@@ -768,6 +829,12 @@ func (s *Store) WriteRecord(id string, frontmatter *core.OMap, body string, expe
 		if c, ok := fm.Str("created"); ok {
 			created = c
 		}
+		// a record written again after its file was lost (recovery rewrites a deleted
+		// decision from the journal) continues its revs: one writer never creates an id
+		// twice, which is how ValidateJournal tells a merge of two working copies
+		if last := s.lastRev(id); last > 0 {
+			rev = last + 1
+		}
 	}
 	fm.Set("id", id)
 	fm.Set("rev", rev)
@@ -790,6 +857,23 @@ func (s *Store) WriteRecord(id string, frontmatter *core.OMap, body string, expe
 	}
 	kind, _ := valid.Str("kind")
 	return &RecordView{ID: id, Kind: kind, Path: rel, Rev: rev, SHA256: sha, Frontmatter: valid, Body: body}, nil
+}
+
+// lastRev is the highest rev the journal has for id (0 if none).
+func (s *Store) lastRev(id string) int64 {
+	var last int64
+	for _, ev := range s.events {
+		if ev.ID != id {
+			continue
+		}
+		switch ev.Type {
+		case "record.write", "record.discover":
+			last = max(last, ev.Rev)
+		case "external_change":
+			last = max(last, ev.RevTo)
+		}
+	}
+	return last
 }
 
 func invalidFrontmatter(err error) error {
@@ -1019,10 +1103,15 @@ const repairHint = "resolve the merge of prepare/ (records of two working copies
 // merge, so they would look confirmed here without a commit. It reads the files, not
 // the index, and runs before the scan writes anything.
 func (s *Store) foreignApplications() []string {
-	intents := map[string]bool{} // txid
+	intents := map[string]bool{}              // txid
+	allocated := map[string]map[string]bool{} // decision id -> txids of the intents that allocated it
 	for _, e := range s.events {
 		if e.Type == "apply.intent" {
 			intents[e.TxID] = true
+			if allocated[e.DecisionID] == nil {
+				allocated[e.DecisionID] = map[string]bool{}
+			}
+			allocated[e.DecisionID][e.TxID] = true
 		}
 	}
 	var out []string
@@ -1037,9 +1126,19 @@ func (s *Store) foreignApplications() []string {
 		if err != nil {
 			continue
 		}
-		if tx, _ := fm.Str("txid"); tx != "" && !intents[tx] {
-			id, _ := fm.Str("id")
+		id, _ := fm.Str("id")
+		tx, _ := fm.Str("txid")
+		switch {
+		case tx != "" && !intents[tx]:
 			out = append(out, fmt.Sprintf("decision %s was applied in another working copy (transaction %s is not in this journal)", id, tx))
+		case allocated[id] != nil && !allocated[id][tx]:
+			// an apply transaction allocated the id, but the file is another decision: one
+			// of the same number made in another working copy (with record create)
+			has := "no transaction"
+			if tx != "" {
+				has = "transaction " + tx
+			}
+			out = append(out, fmt.Sprintf("decision %s is not the one its apply transaction wrote (the file has %s): another working copy made a decision of the same number", id, has))
 		}
 	}
 	for _, id := range listJSONIDs(s.QuestionsDir) {

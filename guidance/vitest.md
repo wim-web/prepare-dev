@@ -35,5 +35,13 @@ Vite の設定で決まる解決（`resolve.alias`、`import.meta.glob`、プラ
 | - | - |
 | 対応するテストがすべて成功 | `verified` |
 | 一つでも失敗 | `failed` |
-| 対応するテストがない | `unknown` |
+| テストは成功したが、そのファイル自体が失敗（`afterAll` などの hook の例外。describe の中の hook も含め、ほかのテストが失敗していても見分ける） | `failed` |
+| ファイルが読み込めず、テストが一つも無い | `ref` のファイルの部分が一致する主張（空ならすべての主張）が `failed` |
+| そのファイルで未処理の例外が起きた（テストの後に投げられた例外、拒否された Promise） | `failed` |
+| 未処理の例外が起きたファイルが分からない（isolate が無効の project があるときを含む）、または vitest が 0 以外で終わったのに、失敗したテスト・ファイル・未処理の例外が無い | `failed`（すべての主張） |
+| 対応するテストがない、またはスキップが混ざる | `unknown` |
 | レポートが得られない | `tool_error` |
+
+JSON のレポートには、未処理の例外も、describe の中の hook の例外も出ない（未処理の例外があると、レポートは成功と報告し、vitest は 1 で終わる）。そこで実行のたびに小さな reporter を加え、未処理の例外と、それが起きたテストファイルとテスト、ファイルとその中の suite のエラー、それぞれの project がテストファイルを分けて動かすか（isolate）を `vitest-unhandled.json` に書かせる（Vitest 3 以降の `onInit`・`onTestRunEnd`、それより前の `onFinished`。実際の Vitest で確かめたのは 5.1.0 の `onTestRunEnd` だけで、`onFinished` の経路で読んだときは要約にそう書く）。isolate が無効の project があると、未処理の例外はほかのファイルのテストが残したものでありうるので、起きた場所が分からないものとして扱う。reporter が何も書かなかったときは、未処理の例外も describe の中の hook の例外も読めないので、0 以外の終了コードの規則だけで扱い、終了コードが 0 以外ならそのことを要約に書く（`dangerouslyIgnoreUnhandledErrors` を有効にすると、未処理の例外があっても 0 で終わるので見逃す）。`globalSetup` の後始末の例外は reporter に届かず、同じ実行にほかの失敗があると見分けられない。
+
+ほかのファイルの失敗は、そこに対応しない主張の結果を変えない。主張に及んだテストの外の失敗は、RUN の要約にファイルと理由の一行（レポートの `message` の一行目か、未処理の例外の message）で示す。vitest の終了コードは `tool.extra.exit_code` に残す。

@@ -1,0 +1,1652 @@
+{
+  "id": "RUN-0026",
+  "plugin": {
+    "name": "gotest",
+    "version": "0.2.0"
+  },
+  "tool": {
+    "name": "go",
+    "version": "go version go1.27.3 darwin/arm64",
+    "extra": {
+      "path": "~/.local/share/aquaproj-aqua/bin/go",
+      "exit_code": 0
+    }
+  },
+  "method": "test",
+  "claims": [
+    {
+      "spec": {
+        "id": "SPEC-0001",
+        "rev": 15,
+        "sha256": "ecdd0dd9a815f02f17cd760b971829e7f4dd693890fe90c76cc643f1a19e66cc"
+      },
+      "claim": "C1",
+      "requirement": {
+        "id": "REQ-0001",
+        "rev": 1,
+        "sha256": "2bc07c3da72d314e5124b88c47776d1fed049c55b7ff90e241fd105f2c67facc"
+      },
+      "native": {
+        "ref": "internal/runtime::[C1]",
+        "statement": "TestQuestions/[C1][C3][C6]_public_reads_and_notifications_never_expose_a_provisional_application | TestQuestions/[C1]_M1-1,2,7:_create,_answer,_wait,_apply_once,_trace | TestQuestions/[C1][C3]_M1-8:_crash_after_stage_a,_b_or_c,_restart:_exactly_one_decision,_rolled_forward | TestQuestions/[C1]_M1-10:_crash_after_commit_before_the_response,_subject_edited,_retry:_original_result,_no_retraction"
+      },
+      "result": "verified"
+    },
+    {
+      "spec": {
+        "id": "SPEC-0001",
+        "rev": 15,
+        "sha256": "ecdd0dd9a815f02f17cd760b971829e7f4dd693890fe90c76cc643f1a19e66cc"
+      },
+      "claim": "C2",
+      "requirement": {
+        "id": "REQ-0001",
+        "rev": 1,
+        "sha256": "2bc07c3da72d314e5124b88c47776d1fed049c55b7ff90e241fd105f2c67facc"
+      },
+      "native": {
+        "ref": "internal/runtime::[C2]",
+        "statement": "TestQuestions/[C2]_M1-5:_subject_edited_through_the_runtime_after_the_answer:_apply_is_rejected_as_stale | TestQuestions/[C2]_M1-6:_external_edit_without_rev_change_and_index_regeneration:_apply_is_rejected | TestQuestions/[C2][C3]_M1-9:_crash_after_stage_c,_subject_edited_while_down,_restart:_abort,_nothing_public,_answer_pending_and_stale"
+      },
+      "result": "verified"
+    },
+    {
+      "spec": {
+        "id": "SPEC-0001",
+        "rev": 15,
+        "sha256": "ecdd0dd9a815f02f17cd760b971829e7f4dd693890fe90c76cc643f1a19e66cc"
+      },
+      "claim": "C3",
+      "requirement": {
+        "id": "REQ-0001",
+        "rev": 1,
+        "sha256": "2bc07c3da72d314e5124b88c47776d1fed049c55b7ff90e241fd105f2c67facc"
+      },
+      "native": {
+        "ref": "::[C3]",
+        "statement": "TestJournalConflicts/[C3]_a_journal_written_by_one_writer_has_no_conflicts | TestJournalConflicts/[C3]_entries_two_working_copies_numbered_from_the_same_base_are_reported | TestJournalConflicts/[C3]_a_decision_an_earlier_version_wrote_again_as_rev_1_is_not_two_creations;_a_decision_of_two_transactions_still_is | TestJournalConflicts/[C3]_with_a_conflicting_journal_the_store_opens,_reports_the_problem_and_writes_nothing | TestJournalConflicts/[C3]_merge_conflict_markers_in_the_journal_stop_the_daemon_with_a_hint | TestCrashRecovery/[C3]_killed_after_stage_question_->_abort | TestCrashRecovery/[C3]_killed_after_stage_commit_->_committed | TestQuestions/[C1][C3][C6]_public_reads_and_notifications_never_expose_a_provisional_application | TestQuestions/[C3]_M1-3:_wait_interrupted,_then_answered:_pending_still_returns_it | TestQuestions/[C3]_M1-4:_ack_then_restart_before_apply:_the_answer_stays_pending | TestQuestions/[C1][C3]_M1-8:_crash_after_stage_a,_b_or_c,_restart:_exactly_one_decision,_rolled_forward | TestQuestions/[C3]_a_deleted_decision_file_is_written_again_from_the_journal_with_the_next_rev,_and_the_next_start_still_writes | TestQuestions/[C3]_a_transaction_whose_question_file_is_gone_or_lacks_its_answer_is_shown,_and_nothing_is_written_until_the_file_is_back | TestQuestions/[C3]_the_question_file_of_an_aborted,_cleaned-up_transaction_that_cannot_be_read_is_shown,_and_status_does_not_fail | TestQuestions/[C3]_a_decision_of_the_same_number_made_with_record_create_in_another_working_copy_is_reported,_and_nothing_is_written | TestQuestions/[C2][C3]_M1-9:_crash_after_stage_c,_subject_edited_while_down,_restart:_abort,_nothing_public,_answer_pending_and_stale | TestRecoveryTraces/[C3][C5][C6]_replays_Lean_recovery_traces_including_repeated_crashes_at_every_abort-cleanup_write"
+      },
+      "result": "verified"
+    },
+    {
+      "spec": {
+        "id": "SPEC-0001",
+        "rev": 15,
+        "sha256": "ecdd0dd9a815f02f17cd760b971829e7f4dd693890fe90c76cc643f1a19e66cc"
+      },
+      "claim": "C4",
+      "requirement": {
+        "id": "REQ-0001",
+        "rev": 1,
+        "sha256": "2bc07c3da72d314e5124b88c47776d1fed049c55b7ff90e241fd105f2c67facc"
+      },
+      "native": {
+        "ref": "internal/runtime::[C4]",
+        "statement": "TestModelTraces/[C4]_implementation_agrees_with_the_Lean_model_on_every_generated_trace | TestTraceProvenance/[C4][C5]_the_replayed_traces_were_checked_against_the_current_Lean_model"
+      },
+      "result": "verified"
+    },
+    {
+      "spec": {
+        "id": "SPEC-0001",
+        "rev": 15,
+        "sha256": "ecdd0dd9a815f02f17cd760b971829e7f4dd693890fe90c76cc643f1a19e66cc"
+      },
+      "claim": "C5",
+      "requirement": {
+        "id": "REQ-0001",
+        "rev": 1,
+        "sha256": "2bc07c3da72d314e5124b88c47776d1fed049c55b7ff90e241fd105f2c67facc"
+      },
+      "native": {
+        "ref": "internal/runtime::[C5]",
+        "statement": "TestTraceProvenance/[C4][C5]_the_replayed_traces_were_checked_against_the_current_Lean_model | TestRecoveryTraces/[C3][C5][C6]_replays_Lean_recovery_traces_including_repeated_crashes_at_every_abort-cleanup_write"
+      },
+      "result": "verified"
+    },
+    {
+      "spec": {
+        "id": "SPEC-0001",
+        "rev": 15,
+        "sha256": "ecdd0dd9a815f02f17cd760b971829e7f4dd693890fe90c76cc643f1a19e66cc"
+      },
+      "claim": "C6",
+      "requirement": {
+        "id": "REQ-0001",
+        "rev": 1,
+        "sha256": "2bc07c3da72d314e5124b88c47776d1fed049c55b7ff90e241fd105f2c67facc"
+      },
+      "native": {
+        "ref": "internal/runtime::[C6]",
+        "statement": "TestQuestions/[C1][C3][C6]_public_reads_and_notifications_never_expose_a_provisional_application | TestRecoveryTraces/[C3][C5][C6]_replays_Lean_recovery_traces_including_repeated_crashes_at_every_abort-cleanup_write"
+      },
+      "result": "verified"
+    },
+    {
+      "spec": {
+        "id": "SPEC-0003",
+        "rev": 14,
+        "sha256": "8412b19c989543598cd119306c0b9b89a91fd68031701eab1cc0e760384b306e"
+      },
+      "claim": "V1",
+      "requirement": null,
+      "native": {
+        "ref": "::[V1]",
+        "statement": "TestInputs/[V1]_includes_dependency_metadata_and_transitive_imports_of_extra_implementation_and_config_files | TestInputs/[V1]_resolves_like_the_bundler:_tsconfig_paths_and_assets_are_inputs,_installed_packages_and_type-only_imports_are_not | TestInputs/[V1]_resolves_extensionless_imports_in_Vite's_order_and_records_the_directories_of_imports | TestInputs/[V1]_includes_ancestor_lockfiles_for_a_nested_project | TestRuns/[V1]_a_run_stops_applying_when_the_spec,_the_requirement_or_an_input_file_changes,_and_the_trace_shows_no_current_evidence | TestRuns/[V1]_while_nothing_is_written_(a_transaction_cannot_be_recovered),_an_edited_requirement_still_makes_a_run_stop_applying"
+      },
+      "result": "verified"
+    },
+    {
+      "spec": {
+        "id": "SPEC-0003",
+        "rev": 14,
+        "sha256": "8412b19c989543598cd119306c0b9b89a91fd68031701eab1cc0e760384b306e"
+      },
+      "claim": "V2",
+      "requirement": null,
+      "native": {
+        "ref": "internal/runtime::[V2]",
+        "statement": "TestRuns/[V2]_reserves_distinct_run_ids_before_asynchronous_verification_finishes_and_after_restart"
+      },
+      "result": "verified"
+    },
+    {
+      "spec": {
+        "id": "SPEC-0003",
+        "rev": 14,
+        "sha256": "8412b19c989543598cd119306c0b9b89a91fd68031701eab1cc0e760384b306e"
+      },
+      "claim": "V3",
+      "requirement": null,
+      "native": {
+        "ref": "internal/plugin/gotest::[V3]",
+        "statement": "TestInputs/[V3]_includes_the_sources_and_embedded_files_of_the_packages_the_tests_build,_go.mod_and_implementation_files | TestInputs/[V3]_includes_packages_the_tests_build_at_run_time,_testdata,_impl_files_patterns,_non-Go_sources_and_local_replacements,_but_not_test_files_of_dependencies | TestInputs/[V3]_a_file_added_to_a_package,_testdata_or_a_pattern's_directory_changes_its_listing | TestInputs/[V3]_runs_go_test_without_the_cache_and_maps_test_names_to_claims | TestEmbedListings/[V3]_a_file_added_under_a_directory_that_go:embed_assets/*_matches_makes_the_old_evidence_stale,_and_a_new_run_fails | TestEmbedListings/[V3]_the_listings_of_go:embed_patterns_change_exactly_when_the_files_go_list_embeds_do"
+      },
+      "result": "verified"
+    },
+    {
+      "spec": {
+        "id": "SPEC-0003",
+        "rev": 14,
+        "sha256": "8412b19c989543598cd119306c0b9b89a91fd68031701eab1cc0e760384b306e"
+      },
+      "claim": "V4",
+      "requirement": null,
+      "native": {
+        "ref": "::[V4]",
+        "statement": "TestFailuresOutsideTests/[V4]_a_file_that_fails_outside_its_tests_(afterAll)_verifies_none_of_its_claims,_also_when_one_of_its_tests_failed | TestFailuresOutsideTests/[V4]_a_file_that_cannot_be_loaded_fails_the_claims_whose_ref's_file_part_matches_it | TestFailuresOutsideTests/[V4]_an_unhandled_error_fails_the_claims_of_its_test_file,_also_when_another_file_failed;_one_without_a_file_leaves_no_claim_verified | TestFailuresOutsideTests/[V4]_an_afterAll_that_throws_inside_a_describe_is_seen_from_the_reporter,_also_when_another_test_of_the_file_failed | TestFailuresOutsideTests/[V4]_a_non-zero_exit_that_no_failed_test,_file_or_unhandled_error_explains_verifies_no_claim | TestFailuresOutsideTests/[V4]_the_reporter_module_writes_unhandled_errors_to_the_given_path | TestPackageFailures/[V4]_a_package_whose_test_binary_fails_after_its_tests_passed_(TestMain's_exit_code)_verifies_none_of_its_claims | TestPackageFailures/[V4]_a_panic_outside_the_tests_is_seen_even_when_another_test_of_the_package_failed | TestPackageFailures/[V4]_a_test_that_panics_stops_the_test_binary,_so_the_claims_its_package's_ref_matches_fail,_the_tests_after_it_included | TestPackageFailures/[V4]_a_package_that_fails_to_build_fails_the_claims_whose_ref's_package_part_matches_it,_with_the_compiler's_first_error | TestPackageFailures/[V4]_a_goroutine_a_test_left_that_panics_while_another_test_runs_fails_every_claim_of_the_package | TestPackageFailures/[V4]_a_package_that_ends_before_running_its_tests_gives_its_last_line_as_the_reason | TestPackageFailures/[V4]_a_non-zero_exit_of_go_test_that_no_failed_package_or_test_explains_verifies_no_claim"
+      },
+      "result": "verified"
+    },
+    {
+      "spec": {
+        "id": "SPEC-0004",
+        "rev": 8,
+        "sha256": "f9453aeec735505b02dc480bca5a9fb512b0d2995709557b80c0a9f4f6cbef85"
+      },
+      "claim": "U2",
+      "requirement": {
+        "id": "REQ-0009",
+        "rev": 2,
+        "sha256": "b2a291cb08bbe0b665586e441f39fa0ef9745716fed13a880d80e18ad6c65518"
+      },
+      "native": {
+        "ref": "::[U2]",
+        "statement": "TestHTTP/[U2]_the_old_UI_endpoint_is_gone,_a_question_with_UI_data_is_refused,_and_other_origins_are_refused | TestQuestions/[U2]_accepts_question_data,_preserves_legacy_display_fields,_and_rejects_invalid_answers"
+      },
+      "result": "verified"
+    },
+    {
+      "spec": {
+        "id": "SPEC-0004",
+        "rev": 8,
+        "sha256": "f9453aeec735505b02dc480bca5a9fb512b0d2995709557b80c0a9f4f6cbef85"
+      },
+      "claim": "A1",
+      "requirement": {
+        "id": "REQ-0010",
+        "rev": 7,
+        "sha256": "cb357908dd74c1fbeef7a8cb2980d740a557a236f046329fb90220a1a6de29a4"
+      },
+      "native": {
+        "ref": "::[A1]",
+        "statement": "TestHTTP/[A1]_answers_are_accepted_only_from_the_decision_UI:_a_request_without_the_page's_Origin_is_refused | TestDistribution/[A1]_the_CLI_has_no_answer_command_and_there_is_no_MCP_entry;_the_API_takes_answers_from_the_decision_UI_only"
+      },
+      "result": "verified"
+    },
+    {
+      "spec": {
+        "id": "SPEC-0004",
+        "rev": 8,
+        "sha256": "f9453aeec735505b02dc480bca5a9fb512b0d2995709557b80c0a9f4f6cbef85"
+      },
+      "claim": "B1",
+      "requirement": {
+        "id": "REQ-0010",
+        "rev": 7,
+        "sha256": "cb357908dd74c1fbeef7a8cb2980d740a557a236f046329fb90220a1a6de29a4"
+      },
+      "native": {
+        "ref": "internal/uibuild::[B1]",
+        "statement": "TestEmbeddedBuild/[B1]_the_committed_UI_build_was_made_from_the_current_UI_sources | TestEmbeddedBuild/[B1]_a_source_change_after_the_build,_or_a_changed_output,_is_detected"
+      },
+      "result": "verified"
+    },
+    {
+      "spec": {
+        "id": "SPEC-0004",
+        "rev": 8,
+        "sha256": "f9453aeec735505b02dc480bca5a9fb512b0d2995709557b80c0a9f4f6cbef85"
+      },
+      "claim": "D1",
+      "requirement": {
+        "id": "REQ-0010",
+        "rev": 7,
+        "sha256": "cb357908dd74c1fbeef7a8cb2980d740a557a236f046329fb90220a1a6de29a4"
+      },
+      "native": {
+        "ref": "internal/core::[D1]",
+        "statement": "TestQuestionAndRunFilesRoundTrip/[D1]_written_by_the_TypeScript_version_(342bc64) | TestJournalLinesRoundTrip/[D1]_written_by_the_TypeScript_version_(342bc64) | TestRecordsRoundTripByteForByte/[D1]_written_by_the_TypeScript_version_(342bc64) | TestLineSeparatorsRoundTrip/[D1]_strings_with_line_separators_and_control_characters_read_back_unchanged"
+      },
+      "result": "verified"
+    },
+    {
+      "spec": {
+        "id": "SPEC-0004",
+        "rev": 8,
+        "sha256": "f9453aeec735505b02dc480bca5a9fb512b0d2995709557b80c0a9f4f6cbef85"
+      },
+      "claim": "P1",
+      "requirement": {
+        "id": "REQ-0010",
+        "rev": 7,
+        "sha256": "cb357908dd74c1fbeef7a8cb2980d740a557a236f046329fb90220a1a6de29a4"
+      },
+      "native": {
+        "ref": "internal/e2e::[P1]",
+        "statement": "TestDistribution/[P1]_the_relocated_binary_runs_the_question,_answer,_decision_and_trace_flow_without_Node.js,_Go_or_the_checkout | TestDistribution/[P1]_the_relocated_binary_verifies_a_Lean_theorem_with_the_real_lake_and_trace_links_the_evidence"
+      },
+      "result": "verified"
+    },
+    {
+      "spec": {
+        "id": "SPEC-0004",
+        "rev": 8,
+        "sha256": "f9453aeec735505b02dc480bca5a9fb512b0d2995709557b80c0a9f4f6cbef85"
+      },
+      "claim": "P2",
+      "requirement": {
+        "id": "REQ-0010",
+        "rev": 7,
+        "sha256": "cb357908dd74c1fbeef7a8cb2980d740a557a236f046329fb90220a1a6de29a4"
+      },
+      "native": {
+        "ref": "internal/e2e::[P2]",
+        "statement": "TestDistribution/[P2]_init_copies_the_skills,_writes_no_MCP_configuration,_is_idempotent_and_keeps_edits"
+      },
+      "result": "verified"
+    },
+    {
+      "spec": {
+        "id": "SPEC-0004",
+        "rev": 8,
+        "sha256": "f9453aeec735505b02dc480bca5a9fb512b0d2995709557b80c0a9f4f6cbef85"
+      },
+      "claim": "P3",
+      "requirement": {
+        "id": "REQ-0010",
+        "rev": 7,
+        "sha256": "cb357908dd74c1fbeef7a8cb2980d740a557a236f046329fb90220a1a6de29a4"
+      },
+      "native": {
+        "ref": "::[P3]",
+        "statement": "TestHTTP/[P3]_refuses_new_work_and_an_already-open_request_body_after_accepting_shutdown | TestDistribution/[P3]_one_writer_per_root;_stop,_restart,_a_killed_daemon_is_replaced,_another_build_is_refused,_a_daemon_without_its_lease_stops | TestDistribution/[P3]_a_daemon.json_of_the_TypeScript_version_whose_lease_port_is_taken_is_not_taken_over | TestDistribution/[P3]_prepare/_merged_from_two_working_copies_is_refused_with_what_to_do | TestDistribution/[P3]_a_daemon_whose_journal_Git_replaced_writes_nothing_and_stops"
+      },
+      "result": "verified"
+    }
+  ],
+  "targets": [
+    {
+      "path": "internal/core/yaml_test.go",
+      "sha256": "f25250d52c4c16bd29f0ffd6c803fe87da370c50206e6addf626c27f2dc42b62",
+      "role": "target"
+    },
+    {
+      "path": "internal/core/json_test.go",
+      "sha256": "cc64e999cee3b3fa41c2e0b2870832eb878e00e50fe1e385980ccb93d061d291",
+      "role": "target"
+    },
+    {
+      "path": "internal/store/journal_test.go",
+      "sha256": "4cc27ca64352e3d9faee65e04ca7782470f4f7dddcb8ced369b91fe235061496",
+      "role": "target"
+    },
+    {
+      "path": "internal/runtime/questions_test.go",
+      "sha256": "2628c88b4540590f1aea9e839dbd6823681826bca4b3ffc64752277338fa3aeb",
+      "role": "target"
+    },
+    {
+      "path": "internal/runtime/runs_review_test.go",
+      "sha256": "f014e157867b6e7965f8315c6f82b42dcb44a74152f7be76dcfddac7d0e38826",
+      "role": "target"
+    },
+    {
+      "path": "internal/runtime/conformance_test.go",
+      "sha256": "1881b0734449803f90f308f26d130339231a2b968fe59ca666989e4a205160d4",
+      "role": "target"
+    },
+    {
+      "path": "internal/runtime/recovery_test.go",
+      "sha256": "d1cdab514ce248645eb7cf9c568902991b0dd0a5a386f8a65fffb4ba4564de1f",
+      "role": "target"
+    },
+    {
+      "path": "internal/runtime/helpers_test.go",
+      "sha256": "f56a4d946d39994b14050984322e2c87de89371a3fcba3aef71dce90ad58e384",
+      "role": "target"
+    },
+    {
+      "path": "internal/server/server_test.go",
+      "sha256": "f097eb7a5d9df74b2e70bcbac21f351a185de30dcfd69c9453da547786180f5f",
+      "role": "target"
+    },
+    {
+      "path": "internal/plugin/vitest/vitest_test.go",
+      "sha256": "032cb095c92afdf601497408b23ac3b20afdf0bc47ab2e63b6f85b9ace38c713",
+      "role": "target"
+    },
+    {
+      "path": "internal/plugin/gotest/gotest_test.go",
+      "sha256": "443bf0d39fb34be5775356e6cfe00bc851f2ae75a7fb5e160003178afa023c74",
+      "role": "target"
+    },
+    {
+      "path": "internal/uibuild/uibuild_test.go",
+      "sha256": "8f707d428711526d2978c724f227114c8fd400c117b57e9a683e8c7be7e9e3f2",
+      "role": "target"
+    },
+    {
+      "path": "internal/e2e/e2e_test.go",
+      "sha256": "a593b6600e7d856d7d5fd8595b116b8ae702ca57ef5d2ef3e51e85822cb8043c",
+      "role": "target"
+    }
+  ],
+  "inputs": {
+    "files": [
+      {
+        "path": "model/Main.lean",
+        "sha256": "6f8dd6802b9061db47ecd621aa44369a526e0f70392fa7778929e03a26a0f065",
+        "role": "implementation"
+      },
+      {
+        "path": "model/PrepareDev.lean",
+        "sha256": "3e9709c78b0507bec08aa4a9af4330d98144fff5aa6ccef1aadfa367762a0d63",
+        "role": "implementation"
+      },
+      {
+        "path": "model/PrepareDev/Gen/Json.lean",
+        "sha256": "bc36067de6ba873bd6bc384ec89cfdb4511cf49c40847f46b51e46f9c1e0a8d0",
+        "role": "implementation"
+      },
+      {
+        "path": "model/PrepareDev/Gen/Recovery.lean",
+        "sha256": "7be87c98937820380c85f03bdb7267720c10ee3384a9066bd9538ca7694c39d3",
+        "role": "implementation"
+      },
+      {
+        "path": "model/PrepareDev/Gen/Trace.lean",
+        "sha256": "1da34fa1d13d0b74e535f83e8a89bf168dd02c983c10967d6068c738fab17a97",
+        "role": "implementation"
+      },
+      {
+        "path": "model/PrepareDev/Spec/Invariant.lean",
+        "sha256": "5683c8027e22cc151325cbb50c6735d52d96f7de31cd42d3fd7407093d0d902a",
+        "role": "implementation"
+      },
+      {
+        "path": "model/PrepareDev/Spec/Lemmas.lean",
+        "sha256": "811b2b4fa3fef4e9ee6d29103c133d101175d9ff1a53d72aba31ca774d8e965a",
+        "role": "implementation"
+      },
+      {
+        "path": "model/PrepareDev/Spec/Reachable.lean",
+        "sha256": "23b503517de10018480bcbb19f37ed2d9bf67910e7d69b6f939f9530e0eb7cbd",
+        "role": "implementation"
+      },
+      {
+        "path": "model/PrepareDev/Spec/Recovery.lean",
+        "sha256": "70d5cd7615f308b24a231e9d114ffb1b0b902dbaf7f3a03b5d341c9e23db4162",
+        "role": "implementation"
+      },
+      {
+        "path": "model/PrepareDev/Spec/State.lean",
+        "sha256": "d98b258cd469c34c8fd3dc648aba5b525ee233975476c43f6a44526a8b81dfa3",
+        "role": "implementation"
+      },
+      {
+        "path": "model/PrepareDev/Spec/Step.lean",
+        "sha256": "a15fb51f015235329871799283613f75a5db8c40e18bc6ebaa1eff3dfae52dd4",
+        "role": "implementation"
+      },
+      {
+        "path": "model/PrepareDev/Spec/Theorems.lean",
+        "sha256": "8d7af6a1f3712cdb932f645470b20938135ce2b364f02ba9ca50a1e157ab572f",
+        "role": "implementation"
+      },
+      {
+        "path": "model/README.md",
+        "sha256": "a5eef49d61f67b057d69cfd6fb9a1a048a1add1432321fd3ac40381d4098da05",
+        "role": "implementation"
+      },
+      {
+        "path": "model/bin/test",
+        "sha256": "2f0cdb715d523ec31124609dcd54f469d6d071d6b7d26667546fff906ba5df1a",
+        "role": "implementation"
+      },
+      {
+        "path": "model/lake-manifest.json",
+        "sha256": "87b449c6217968293c0f898fd93d5e457bc05f6eae5a4ffffa19ef3888e0ffc0",
+        "role": "implementation"
+      },
+      {
+        "path": "model/lakefile.toml",
+        "sha256": "582eb1f190cc8794754b11391170f67984bd1f5778b9764c261dfa8b0da4eb69",
+        "role": "implementation"
+      },
+      {
+        "path": "model/lean-toolchain",
+        "sha256": "ca5f1f601d34c49079e38d7e7041eb0f2a9c227fbc1df0f404820069a052330c",
+        "role": "implementation"
+      },
+      {
+        "path": "model/traces/depth-4.jsonl",
+        "sha256": "bc1456a73581f586d267030593eae0a8ad0e95cb52240cf1d6b4749410a369db",
+        "role": "implementation"
+      },
+      {
+        "path": "model/traces/depth-6.jsonl",
+        "sha256": "d11ddd7ffd3abf09d3d32f76999d37423ac148d09bfbd5250bdd8fe2665635a7",
+        "role": "implementation"
+      },
+      {
+        "path": "model/traces/model.sha256",
+        "sha256": "57da4a9171d7c2a0731bfc1ec136b8a145db6a0c86ddf63cf3eec151885d1c13",
+        "role": "implementation"
+      },
+      {
+        "path": "model/traces/recovery.jsonl",
+        "sha256": "bac9bcfa48a459e5b355d36b8dc51d674f5f4ba5c15d96f76c36c8656a45de7f",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/README.md",
+        "sha256": "9d4fe97240c93506cfb2fa2b90b40955ae09f17ef0590c7afaff3945a75d99bb",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/build/THIRD_PARTY_NOTICES.txt",
+        "sha256": "53e5f89cdb4ff9f964f1ef37be0d5b3df9ad2b23f5e737184a62fa5a8981459e",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/build/build.json",
+        "sha256": "40a1286808b8fe8b27a9910fc8ea039986d638b87b77fac4429fdde76c264e7d",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/build/index.html",
+        "sha256": "517a2c804336e060daa27de59cfa53c1309369f65182919787254685a2b76389",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/index.html",
+        "sha256": "29a1aed49cc6f0fc80bc8067c01a42aeb6314650e23b78ad784b04d5b9e92518",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/package.json",
+        "sha256": "358fd1aaa9d6fb077a6cf9cd367cdb1d05c152f87b2304174149f2fc413c324b",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/pnpm-lock.yaml",
+        "sha256": "4fefa11f81be549259360f6e92a6e19a5e7db83c529c17b4875d738f31867844",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/src/App.tsx",
+        "sha256": "1824fdfdad00cf2632aa1005a8b4c186b3265ae796e4de06af56e946dd29b8ea",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/src/QuestionView.test.tsx",
+        "sha256": "5f71ab7083906f49f0b8cce3a8b3bde3fdf714526ed0a50a9a880d782b1ddfd4",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/src/QuestionView.tsx",
+        "sha256": "d9b1c47808067033c90884a4940ce780f4002d3d2c90bb6d620714e2f37872cb",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/src/SubjectRecords.tsx",
+        "sha256": "66fc5232f1ca6d355d22bf6932866d3bd0bd3e37fd802c91db03b1fd8dc375d9",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/src/api.ts",
+        "sha256": "00e9da5bfcde98c86223f374d1450270d61479127da905b8d987cd5852f295d3",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/src/main.tsx",
+        "sha256": "a6bcae9c4f04d6ff36406b2966379834342b41b08b83ba7bd0334712d6cf87f0",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/src/styles.css",
+        "sha256": "09182446a525ed8265231dd5bfc707b12c6e07f222e6de2e68097024f0184961",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/tsconfig.json",
+        "sha256": "71486d166bd5e55076fd2a916139518772ce0250ec50bdbfdaefe3c4c605fec6",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/vite.config.ts",
+        "sha256": "77b633ad88dfb4bba4bfee0d63a92eac19120edb8a682d91574153c4eb2e0dca",
+        "role": "implementation"
+      },
+      {
+        "path": "ui/vitest.config.ts",
+        "sha256": "81405f64895adbc6fc428cd32c11b66d6e6b07ce8a5dd1c8a7ecfd152a6994bd",
+        "role": "implementation"
+      },
+      {
+        "path": "assets.go",
+        "sha256": "e995f942d6cf8454c7b3a510ada4f3422d56a6c9fb2f211d0292487357285b59",
+        "role": "import"
+      },
+      {
+        "path": "cmd/prepare-dev/main.go",
+        "sha256": "a6c96b48fcd665af15b967c150997ef4213860d2d23efaba076be0f583e3dc56",
+        "role": "import"
+      },
+      {
+        "path": "guidance/gotest.md",
+        "sha256": "d95aff0a7fa48f06088ee631553faf1791aa70c7089c7cc29ca3ef535b0962c7",
+        "role": "import"
+      },
+      {
+        "path": "guidance/lean4.md",
+        "sha256": "2f62539398395ec78089ab363974683ffdad4383edb9a17f80a3467451ca0fd6",
+        "role": "import"
+      },
+      {
+        "path": "guidance/vitest.md",
+        "sha256": "e45a6ab3138ac1ac5fb9058a1d7772ca2d9434ee22c3a762fb8d8fd026903f6a",
+        "role": "import"
+      },
+      {
+        "path": "internal/cli/cli.go",
+        "sha256": "758df140faa47f93dad5653ee093ad6231ef177049c5af26844e6379fa2194d2",
+        "role": "import"
+      },
+      {
+        "path": "internal/core/base.go",
+        "sha256": "6d5ecf8c6cb0713e6929317b8748602bb1ca3390f72bcd2156c3105fe6cbc8a6",
+        "role": "import"
+      },
+      {
+        "path": "internal/core/frontmatter.go",
+        "sha256": "7c1c1e24d430fa9c05bca02c459ca6d49f88cc1c5104f61658cb5e95de5f7cf7",
+        "role": "import"
+      },
+      {
+        "path": "internal/core/omap.go",
+        "sha256": "8688063a1be66df2127b032b5d86bd8c8d5aa370070d052d1fd7ab2c5788697e",
+        "role": "import"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/README.md",
+        "sha256": "884ae480a7da41960c5db5e6c9d92fd6da4c5c22d02df895ed67ccfb773e45d6",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/decisions/DEC-0001.md",
+        "sha256": "5f9580c6c28c0c2f5ef3775eafa86ccb7cfe6f5f084e2672c8f728fb80f2184d",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/decisions/DEC-0002.md",
+        "sha256": "e1811a75b30d0578a76f6d2f02febe16e01808946bc4809ee7e8547ea2132bdd",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/decisions/DEC-0003.md",
+        "sha256": "fe823837f575d373254b28dc001ed0e0f901785f4e04e3a76b64c7bbab7a17ed",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/decisions/DEC-0004.md",
+        "sha256": "6cbcdfe203b0b6a9cbca80bd66da1a73a2b4703b9c5f978a83ae9d5464dcf432",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/decisions/DEC-0005.md",
+        "sha256": "5a3a29d3f61b547b68c71e412cf76b6593308b8d7926c0e030978d90a68ccfd4",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/designs/DES-0001.md",
+        "sha256": "f4aedc16faef6f2d6df7ea3b9d15b7986237b080393de232b6ed1784c2dd6265",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/designs/DES-0002.md",
+        "sha256": "de468faddf0a89ce0e1730b9e1a50f49a4870756e21713a457b5f3224cc1fa41",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/designs/DES-0003.md",
+        "sha256": "d6ba0f5333aa52bfa8750ad9c642577824e84cdd8b5bd4d3c86db9bf390d243d",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/discovery/DIS-0001.md",
+        "sha256": "8ed77d69e412d1c186558a96a7799fa9b8ae452f273fb2e8a28877ffcb0ad33b",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/events.jsonl",
+        "sha256": "3f0dc50abe989a657c2e8442e83f08aab9e5add703d2de1f8544c8387b375c63",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0001.json",
+        "sha256": "07cbb7ead727920698f922ba266fd36e0da46177ad05c6c0efb7404fee86aaca",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0002.json",
+        "sha256": "d0206978717cd6e865f2c10e5a7480454fc0a91e75868c0a4e72fc1c55a7e708",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0003.json",
+        "sha256": "54c5baa179df28577283a06ec6a0d0edbe64670ac5e5c405c64d8427f9857d80",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0004.json",
+        "sha256": "66a9324f17b69e97aa910ac4ae3c9ae23f3954a094cc4c1671aeb0f2bab9213d",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0005.json",
+        "sha256": "a643ad1a6d5aeba419d67c0e63cd1ed9b560b49604262d697140e18774e019d9",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0006.json",
+        "sha256": "8583d261e995172122325b07a5198e003748044e3a3dddc9b9131388c6a7b429",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0007.json",
+        "sha256": "541ef90b1115e5e85c6fb3b123f8e9820f0a8b6767228892f9515501c6f374eb",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0008.json",
+        "sha256": "53a95bf9879ad13415e47f723cf97423ebee1dd9f7a48675f73f492d71968cdf",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0009.json",
+        "sha256": "1e4ccc035dd68d542faa30d110fdbf6a3690a47b28040d48a8b7ebdd0f888d80",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0010.json",
+        "sha256": "f0c45e33c1bbf2a4bd5733860a381a97063dfe4d83c96742353927883c2a05e0",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0011.json",
+        "sha256": "13d6d9d86cdc5f3671679cc7479839d55ce4235c1cd9681230db73e3f7426ad8",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0012.json",
+        "sha256": "eefa86af258b1bde5886d30573a6d35c022aad2aa4c47504e48bbeb0fcd0b26a",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0013.json",
+        "sha256": "feb531e29ae0ae23ef17a6b170a71f5078141ecdc3374ed69a5ce82ae34092ad",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0014.json",
+        "sha256": "2fc20cda714144091e4f60cac855e41b39bd02715638cfd420c471b734147061",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0015.json",
+        "sha256": "0b920d58cc7f2581d52e607c139f17dee15cda6d19a15e1c5ecbc4ef0ef828b8",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0016.json",
+        "sha256": "084ed5842067e12f841e1b72afaf306184c41d8f0c29265323a8950e93a04fbe",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0017.json",
+        "sha256": "cdd2f682077a3879c52a493464f43c3e9123924401c4d15e5515a62472c030ff",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0018.json",
+        "sha256": "b24278e25171a6efcf759dfdfaaf6689b20bdbb8295ab430f6e360fa6cf5fc9c",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0019.json",
+        "sha256": "8f0c1f5c6a35845385d398bd0bfb75927b7957256f76d5426a1fb8d532afab8e",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0020.json",
+        "sha256": "4c0d253c62d6483fea27bd7e5664faef933c9720ee805a6fd13c653a51cce321",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0021.json",
+        "sha256": "e789453e111e22a0884e0371540d3e50d56a43c05b86b4460d732efce1d46faa",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0022.json",
+        "sha256": "c74b02ea083697a28163231245d47753e86b60cceaa226875a644a53ce7279a5",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0023.json",
+        "sha256": "caaa04fdd6b7c7ea7d176fe3c7a6e12e007fd3bee89001f9d700edd241e6566f",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0024.json",
+        "sha256": "7a2f025b47fa3aad44ca4c3713ad7e8485e7c6e5a6269abd43e6a67bd16c84be",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0025.json",
+        "sha256": "e50f9a1064a857f415656263bdb0fb1f362518d16e15860070624e3f2e347b15",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/questions/Q-0026.json",
+        "sha256": "f9d8baf23b222eab2c830243bb62536401cff2e8926f98a7ea4de355ab668e46",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/requirements/REQ-0001.md",
+        "sha256": "2bc07c3da72d314e5124b88c47776d1fed049c55b7ff90e241fd105f2c67facc",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/requirements/REQ-0002.md",
+        "sha256": "815aff07b51107ad095f95da9df9a8c596cd06387f19c67ee9c18d130bca81a7",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/requirements/REQ-0003.md",
+        "sha256": "68611fc57865db7ea022a276070692d052c95c5acdeb360cde750d69f7e0f597",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/requirements/REQ-0004.md",
+        "sha256": "e653970c096643d8b84aec4ed700401d92735c80b974ee285448b1fd16208e14",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/requirements/REQ-0005.md",
+        "sha256": "4d1329c3d95e87be605b4cc4299e935fb86235b4bc4582eaa0a548d7d48fa5d5",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/requirements/REQ-0006.md",
+        "sha256": "d5a7fdf955af35df73ea39f35ee8f2e8b8e2d11844fbef9ea92a20b744ae8b6d",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/requirements/REQ-0007.md",
+        "sha256": "91bc4d11e724925a6687bf61c11523530447888012b195e8b4661786f8f95aa8",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/requirements/REQ-0008.md",
+        "sha256": "a27f8041295dba80138fd2e17827238e0dbaf83b30829e3570f67c4028c64452",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/requirements/REQ-0009.md",
+        "sha256": "b2a291cb08bbe0b665586e441f39fa0ef9745716fed13a880d80e18ad6c65518",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/requirements/REQ-0010.md",
+        "sha256": "64945ef0b43e18bc1474cfe8ceccea5b15a42cb218133ae102b0d714a777101d",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0001.md",
+        "sha256": "209afda86b568fa0dfa5bf97f46192a19490535c22f23b38c74f93a632be594f",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0002.md",
+        "sha256": "78145e0048bf4fc93e432844f8051ddccf52c7b97d2cb6f50f6d8869749c1561",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0003.md",
+        "sha256": "97a917c67518c01bf6ce90061d60f701061c6831253990dc393b867e6ad08f63",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0004.md",
+        "sha256": "cc83363fd604a2e0d2cebdfed745907e085a47a690e7e53fe749580feb7a4bfa",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0005.md",
+        "sha256": "d55b2e69a4b7a4efcfcc36add243a5abf6a9df54f61ef8152605d15220296575",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0006.md",
+        "sha256": "8e2d95f16ea9d8f4cce9687fdb6b9e77b9281fe994f7c2f7248aefb473e01843",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0007.md",
+        "sha256": "dddf3204807964d3142b834d7df8cb03b01701bc60f92849aea3ac73f75edfdd",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0008.md",
+        "sha256": "401fb2cab8bce6367465f513daf26437a5a4b53b3aeb5059f4cc01f83cb06221",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0009.md",
+        "sha256": "b1905fefd267bad179256c572d5c3d65a19d605d8a7e894af614adf055702184",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0010.md",
+        "sha256": "a9938c5471a3cc961dcb3a01ca9ec0a9d9c804677436caa0f208c358ed55fc58",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0011.md",
+        "sha256": "c4df17688eca0960b42751550b841806ba4a958f8705c9c07f9ae2886b32b9f3",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0012.md",
+        "sha256": "fe877ec33af3106f3fa99c52a52945a01e0ef003f909848b41879b5952aa660b",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0013.md",
+        "sha256": "ce028f9c735780b68f045f67533debde8c455db2dbae4af106c6e45a4fbc8171",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0014.md",
+        "sha256": "ea6a1ddf50493bc72c4495f52734da466a58f13bfbae5eb36b97343a2e64ef0b",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0015.md",
+        "sha256": "7a4c451b9704c77968ab05e297e62175ea353c9480768da2875aeebfea549400",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0016.md",
+        "sha256": "fd08d97fc49aeb8b1667eba38b2fb1478bb41af71c0b9aa2795e84b1b94fd953",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0017.md",
+        "sha256": "33983df28a92a9a03972b2d3305f34199f5a4e5341d59be884f0be86f279254a",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0018.md",
+        "sha256": "2006ff144431833de85df7a91c4c52d176e190a86f94fb70c80bffde843f5e01",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0019.md",
+        "sha256": "73a1633eafefcc230b4fd4d5e24ca45a13fe3b4ffd1a302a130df4ad303917f0",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0020.md",
+        "sha256": "a6265110cf3b7ee76f7f1ccc337afcc7719dc09c373d486e9b9c485200625120",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0021.md",
+        "sha256": "a3ccdd4e44a9006d51a3aa033dd0c68c61b663856b77e117663f0fa2083b47f8",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0022.md",
+        "sha256": "4a7f459fbc0bb1f1df27468968c64cf54f6282faa9a181d0facb8b5b65e95651",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0023.md",
+        "sha256": "abe54a9ef3a1d1451f334c89eeba0fba38cac99b77633a163520eb0f5d9e5d78",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0024.md",
+        "sha256": "d6a7e964e7655ba1b8e583a65a39f58fbdc1cda4378061ab82d6bedc04a6ac9f",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0025.md",
+        "sha256": "8f6fd2a54770fb4c382da6770d442a44d5a14a6410ce77e01380a5ef5908fd1e",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0026.md",
+        "sha256": "22d19b7d12eccaed4dc5331726a4fdb0cb3e0e6de573ea52992bf72677e27c5a",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0027.md",
+        "sha256": "740da30adb0d363c8f281f00cb75d6e4964b6e831f86569d63fe8200da5503eb",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0028.md",
+        "sha256": "ff174912a94375b24c20adb0818811ebf9e4a41170231b0ffc46f9a60ef32bfb",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0029.md",
+        "sha256": "748349a3c9d2413dba4039fab9aa83fad072a8f43fe1e4cca632931c1b4ee6a2",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0030.md",
+        "sha256": "fd3150b9a58a202b647560a506ae6ea056d72126c2556b45783e18ace2702126",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0031.md",
+        "sha256": "d9c31a63c4717b2bda6fc1e61f7d4e1dc4e91bea972d89f39807f83136091bd1",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0032.md",
+        "sha256": "9cdeb6fae9f14d541bb263d265b6b936031505080e2d430f6c0df2de414f6290",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0033.md",
+        "sha256": "fb52714d8f260f46fec9572612addb61f447632a3d990091c7cc7b5c7b11ff00",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0034.md",
+        "sha256": "67e404106fd638892b2517d2f32ec2a84d5ebacda8299b6a2dd10b86055efb10",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0035.md",
+        "sha256": "2b17cc130a97e4de8ce530ae9a74c9a8e6157f792c5dab5c3bbe8fcc5303c4a6",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0036.md",
+        "sha256": "6e9be346be51894791cf2cad1c1714a265bec40bdbf7e8629f42fa1038e3bf99",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0037.md",
+        "sha256": "010f642b538cb66b8e3afc664918ac804cca6f2d646089acc1943f400f675128",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0038.md",
+        "sha256": "0d8232bca4f600d38ed41d461e611f8c7f8437a7249983c00261d939d530e0c4",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0039.md",
+        "sha256": "075a7178dbd0858aed92deb98838752069a91036510beffd46ef87e8dd17ba52",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0040.md",
+        "sha256": "43232071356096581d9431a970489a978d23c077275a00c8119c551f7fd4b24f",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0041.md",
+        "sha256": "9f1890b10486900603f73a58e9acd4f37cbd6a07dcab98ef4a6f34b2dab6a35c",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0042.md",
+        "sha256": "8bb3e0dafc84cf86f690bacf72bdb0ae2f95260cfb942a2dce4e79e4b8d19821",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0043.md",
+        "sha256": "6292d1f06fa5ea354c3f0ca7dd035377bff7817319da2b36d90ecc1faa8de0d1",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0044.md",
+        "sha256": "b62fc3e248a762200dc15f199a595690f47ad965cde48667ecbb4567082cfa5a",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0045.md",
+        "sha256": "2373cc87317c69da0031cc03418118fbf3a7254eb7f4fca6d32f7d27f34636ab",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0046.md",
+        "sha256": "1b1e99850b30dbfda399b6aa221a49668bc7746dd64b284dc98b26b8dd8c89c9",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0047.md",
+        "sha256": "cf6e0a1b90f234bc262e9267f7629b113124fc7afa0a9979a699bac23e0c4145",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/reviews/REV-0048.md",
+        "sha256": "4389b7f02e586670e48496bd62ed6167d2ad2f78af82f9215b3a03dffca0ae98",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/runs/RUN-0002.json",
+        "sha256": "c84549053018d45adb20e9f0468a4f76dd186a5f9fe23aad6112cc3bc1893e08",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/runs/RUN-0003.json",
+        "sha256": "a44f82db306cffcdc3c0c3ae947f8b9af53c8072da4bb0c4b6cf4519bdc44a2a",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/runs/RUN-0004.json",
+        "sha256": "1444785385fdb501a21cee6b4c5e435fb7a4c7937e915538a1d2b0e9c6fd6adc",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/runs/RUN-0005.json",
+        "sha256": "a9d4b984bccd73d9905292fd22ad0c29bdb34ebd04003f0c364f6b04134097ad",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/runs/RUN-0006.json",
+        "sha256": "c9d1a74d72d62c61ea7e18eb3a72e355fa4924991573b756d8e78a6b979cee14",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/runs/RUN-0007.json",
+        "sha256": "4d458b30092faedb274398456881ace0ad028dd9cae26a6c5a1bf6cda86ba6fb",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/runs/RUN-0008.json",
+        "sha256": "1a06b7c0b83fb5b2267c46ac26404f6f71d78ce5fa8e75952cab5d2c23e48433",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/runs/RUN-0009.json",
+        "sha256": "283fcc690758568bf74f1dbbc6525c1f3ea864b035c1b36e7a279df5e5d5bad7",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/runs/RUN-0010.json",
+        "sha256": "76fe7ebb5564d0d3b66112b7d47aea2e2ff89da1200fced02114986f384173d0",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/specs/SPEC-0001.md",
+        "sha256": "6dad0528322e037b9adda674e87ca260cb7befda1705e58344f700a19b810305",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/specs/SPEC-0002.md",
+        "sha256": "d7f321db80a59e79521fd12b5cb15c719b7a2a54152c1c864e3aa02ab0700895",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/specs/SPEC-0003.md",
+        "sha256": "5487202f03e7406c6ac3bc2a540fbdd9608ac46012aec5cfb6535444776c83c4",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/testdata/ts-342bc64/specs/SPEC-0004.md",
+        "sha256": "44a6cd23301192f0d19d10b41427dfe33a043143bc087acb3c3baf73fe610630",
+        "role": "data"
+      },
+      {
+        "path": "internal/core/types.go",
+        "sha256": "02b2d95cbd1cf24453108f3d1097c387d83ecb188f73a68cc5d80d9582896c0a",
+        "role": "import"
+      },
+      {
+        "path": "internal/core/yaml.go",
+        "sha256": "c84e623947d550c4ea5a47283cd49853e2404d2933e2b2bd577a7d96e81d8ed2",
+        "role": "import"
+      },
+      {
+        "path": "internal/daemon/daemon.go",
+        "sha256": "c562c6710641a4fb68764681ae0c487e4cd656149012bf56479d48e7d6349294",
+        "role": "import"
+      },
+      {
+        "path": "internal/plugin/gotest/gotest.go",
+        "sha256": "c48fbace85ff4147b69329f462c690aae5e288992867c79de3ca56e3c85dbaae",
+        "role": "import"
+      },
+      {
+        "path": "internal/plugin/lean4/lean4.go",
+        "sha256": "170fdfbad910f9feee40af697e259fea900717f8a2d9951e279902cde9e2ca64",
+        "role": "import"
+      },
+      {
+        "path": "internal/plugin/plugin.go",
+        "sha256": "43dd95abdf155514c2e266dff052193ed6e779cafee73a2d231c0d76078f9fe0",
+        "role": "import"
+      },
+      {
+        "path": "internal/plugin/vitest/vitest.go",
+        "sha256": "11d800c36598192d77b417064da14875163ae3fe95d7c3a7647cfd40803a8b37",
+        "role": "import"
+      },
+      {
+        "path": "internal/runtime/questions.go",
+        "sha256": "2b7b03d6656b4c14267bf3e9b4fe869ffbdbb59fbf6b5ab3db56ba7f869f2d2c",
+        "role": "import"
+      },
+      {
+        "path": "internal/runtime/runs.go",
+        "sha256": "dfa572763703afbb6a6e95355fc83343fa9ebe6f63759b7a31e1cb7db8cafb19",
+        "role": "import"
+      },
+      {
+        "path": "internal/runtime/runtime.go",
+        "sha256": "2ff180c59881294516b9ecde8ddecabbfa32a766d8dc7f42925275984f85d666",
+        "role": "import"
+      },
+      {
+        "path": "internal/runtime/status.go",
+        "sha256": "c534b0488fa2f356d68165562a49a7c34039ed4da1aa155982ae97886546af4a",
+        "role": "import"
+      },
+      {
+        "path": "internal/runtime/trace.go",
+        "sha256": "caa048cbcc2b413c5d9e32d787287292f8f381f79edfce1b3c0ec213f4b1b628",
+        "role": "import"
+      },
+      {
+        "path": "internal/server/body.go",
+        "sha256": "9d116c95a9658559cbd5b8eb8a4947a97c4e9f895feb473fef8308a4a38ea336",
+        "role": "import"
+      },
+      {
+        "path": "internal/server/server.go",
+        "sha256": "c1d9691572f51d92b71cbafd98604e2b8591e92251b8b617bdc30ca422e515a3",
+        "role": "import"
+      },
+      {
+        "path": "internal/skills/skills.go",
+        "sha256": "2a76747d555d4de05a0b038afbde0906dd24d2d238662cf1acb2b3d2459a51cb",
+        "role": "import"
+      },
+      {
+        "path": "internal/store/journal.go",
+        "sha256": "bc873be969ed83e50dba77c855afbb9627144f466eb34561450cce1fbb684b7d",
+        "role": "import"
+      },
+      {
+        "path": "internal/store/store.go",
+        "sha256": "39f08e55ef58ac011c4944a6ea117e0d97dc1e44d0a9d180b4327ce9a30ebdbd",
+        "role": "import"
+      },
+      {
+        "path": "internal/store/testdata/ts-342bc64-events.jsonl",
+        "sha256": "3f0dc50abe989a657c2e8442e83f08aab9e5add703d2de1f8544c8387b375c63",
+        "role": "data"
+      },
+      {
+        "path": "internal/uibuild/uibuild.go",
+        "sha256": "08c51ff23aebd800e3bbe6ec23092f1c71a358bb8102cfb9cdfe114758afbbe4",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-design/SKILL.md",
+        "sha256": "92581aa264b59affceb10a1ae43fa4e75ed389792bdb413f60dad24a0bcd92e1",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-dev/SKILL.md",
+        "sha256": "9cecfc164518e96019f10ce476e99989fbd9525bec5ef815b180ca0ee83742c7",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-discover/SKILL.md",
+        "sha256": "4be0f2bdc9d805948d6159c697b151e9f9c2e29348284a839a45a6ff0cac3d95",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-requirements/SKILL.md",
+        "sha256": "d649ce35d846d668e3be9c0a2299d22a3d4ac222af40a1a65e088fcce8ebcc3f",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/SKILL.md",
+        "sha256": "ea0aaa8e5e6644aa4c08c2f70bacb7c89aacbc13a8dc12b69752430218dc3d53",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/ATTRIBUTION.md",
+        "sha256": "336fb72995bb865c9db3c491c32bbf518105883740f1ab191fb468f3fcd7b9a9",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/agents/codebase_details.md",
+        "sha256": "d80db07e449b57b3b3776d1401cca72a54b6b65a0ab218b86f9064ee4b8167bc",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/agents/comprehension.md",
+        "sha256": "974f4972f717dc7b102a9b1407b3a625749149f2ae905727241e919f43cc3fa5",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/agents/design_critic.md",
+        "sha256": "cee6294735ce2bd4fea19245852b6eb07cbe8ede7e72a4bfc829f586e4a39d0f",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/agents/implementation_readiness.md",
+        "sha256": "1f6aa61cfe7cb86dc94943ab3b3fd339e5baba533937198fd10edb06dfa64e8f",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/agents/inventive_catalyst.md",
+        "sha256": "e766638298dfa42859172df62d1c0a4faa9ade143bcfc92837b5843a684e1da4",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/agents/structural.md",
+        "sha256": "f0d4fe6faee4e388366b7d653fe353a9b09f45ca1bf5dae29280e351cda7da87",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/agents/style.md",
+        "sha256": "9330780622baaef8dc683ea78efb3ff8e4583e3dde7ab6092b84df50e8c9ea58",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/agents/synthesizer.md",
+        "sha256": "44d1288c03ec829acafd8af0226ce1d0603f4cf04e9f8438b5b36a451be8f8b6",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/agents/zoom_out.md",
+        "sha256": "adc9d7b7db4c304866e61d5e5e446502231abe188ce64656939305e07ae7995f",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/document_standards/feature-spec-standard.md",
+        "sha256": "8e9821e7bfd7c074dd1cec7ba02e3ea09a3fd32e35b91a1463a37c1ee3b9d6a4",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/document_standards/heilmeier-standard.md",
+        "sha256": "a23bc354a5651bd00d817409a72ebcb7536c249e2038c13255ce89f49f138174",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/document_standards/implementation-readiness-standard.md",
+        "sha256": "49ef3a44228a14c774ec606477293be6467b232a9e4af9e031a3cad64ed87642",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/document_standards/re-implementation-standard.md",
+        "sha256": "421aacbf5e9a0d4c5b794edfa4cac333f8cc67bc4cf0e3717efcad4f827e6e46",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/document_standards/zoom-out-standard.md",
+        "sha256": "0a01013bd363a8d744f8372b65495892360d7339e4e35c767003ae38f48e6799",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/egm/templates/design_doc.md",
+        "sha256": "309246562d1ffd801b3a2cd81f5cbc767d36f7530046f6ac681b6db40c6c7965",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-review/references/wrappers/goldfish-prompt.md",
+        "sha256": "97a0dd60bcba8851623d66e42bb28d799d76411fe0790027530b8a1937a22b58",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-specify/SKILL.md",
+        "sha256": "d25e9b3c80579a9f102733a6a600879f6abf91778c6cdfd2ad22f0e796fc3add",
+        "role": "import"
+      },
+      {
+        "path": "skills/prepare-verify/SKILL.md",
+        "sha256": "60b050b48d5b30eb78671b3e89a015ce752756cb9fbda74e2c45efbbfb5a08d8",
+        "role": "import"
+      },
+      {
+        "path": "go.mod",
+        "sha256": "2037df9219db299b6f32ffaea99a715ac60fc76a2517d85401450649558ae113",
+        "role": "config"
+      },
+      {
+        "path": "go.sum",
+        "sha256": "a18c78b30dee61faae5ac2b966dfb363cfb77c862f588fbac8b26254dcf63edb",
+        "role": "dependency_lock"
+      }
+    ],
+    "config": {
+      "project_dir": ".",
+      "packages": [
+        "./internal/core",
+        "./internal/store",
+        "./internal/runtime",
+        "./internal/server",
+        "./internal/plugin/vitest",
+        "./internal/plugin/gotest",
+        "./internal/uibuild",
+        "./internal/e2e"
+      ],
+      "env": {
+        "PREPARE_DEV_TRACES": "model/traces/depth-6.jsonl"
+      }
+    },
+    "listings": [
+      {
+        "path": "model",
+        "recursive": true,
+        "sha256": "5a7fa0cc5164a7fa6fa7eff06867923d05c90acc7437156c39f337688b97be25"
+      },
+      {
+        "path": "ui",
+        "recursive": true,
+        "sha256": "960d167f88396b33e468459f6f4164e43b43d93b24422bb4416eb812dabe5623"
+      },
+      {
+        "path": ".",
+        "recursive": false,
+        "sha256": "5b5ddc9d363f214359665af8964e720ebca182a5b0379c4699eb906ae105faa5"
+      },
+      {
+        "path": "cmd/prepare-dev",
+        "recursive": false,
+        "sha256": "8bf50172b962773a2d84ff1fb98b73d53615ccea71fc3511786230fa8c8d4346"
+      },
+      {
+        "path": "guidance",
+        "recursive": true,
+        "mode": "go_embed",
+        "sha256": "8728e534569b0df064fc481438c0e6c1464d18d2145171c64ae439cf4f3a9263"
+      },
+      {
+        "path": "internal/cli",
+        "recursive": false,
+        "sha256": "987475c041cd1942120ac4e681a94371376a807bd88edf5bbd01bf4dfc2c1b1b"
+      },
+      {
+        "path": "internal/core",
+        "recursive": false,
+        "sha256": "21f8f8e6b262c3830c81029cd4c82f734918e99e6c26eddc6fff73a3b954f0ab"
+      },
+      {
+        "path": "internal/core/testdata",
+        "recursive": true,
+        "mode": "all",
+        "sha256": "544a66166719332943e5fa244dc06bae7816e8339b4f788ab2add6e76dc7111d"
+      },
+      {
+        "path": "internal/daemon",
+        "recursive": false,
+        "sha256": "4703ef56e7d9ac6816aabd12a4ac32a62141fa0fff876d7e572c1b204199cd98"
+      },
+      {
+        "path": "internal/e2e",
+        "recursive": false,
+        "sha256": "cfc662ab4b6e4671acbe29f53038276fc023d49a2ac2f53b026859c8ac85df3a"
+      },
+      {
+        "path": "internal/plugin",
+        "recursive": false,
+        "sha256": "b146caf056d56269f2267928254b38f4b88717a011d0b283987a9be67f4e034e"
+      },
+      {
+        "path": "internal/plugin/gotest",
+        "recursive": false,
+        "sha256": "e9f8aad37d00b52b5c7b4ff077c788430eb65efc183ae0954a20bd244be63225"
+      },
+      {
+        "path": "internal/plugin/lean4",
+        "recursive": false,
+        "sha256": "508a20f0c8ae2369d9b6db3b7390a926aaac6e8a9cc5d7a4f83f2668132d2db6"
+      },
+      {
+        "path": "internal/plugin/vitest",
+        "recursive": false,
+        "sha256": "b3712dfebb319afe2ae4c5df1de4c892defa96fcb5b15513fa2111d53b6eea95"
+      },
+      {
+        "path": "internal/runtime",
+        "recursive": false,
+        "sha256": "6253cd4f2e9ac5c0dd4b08b198b9bf0a598da40be4aa5f1140f50638dea95e61"
+      },
+      {
+        "path": "internal/server",
+        "recursive": false,
+        "sha256": "efe91155ddd46c22387beace73b546f8924e769ba6f483d8b4bacbee64237db8"
+      },
+      {
+        "path": "internal/skills",
+        "recursive": false,
+        "sha256": "7574d3bc3e60ee683f1eb189faff41d7cd6bdfe886b523812c3ddadbee1d5e1f"
+      },
+      {
+        "path": "internal/store",
+        "recursive": false,
+        "sha256": "5e556b227085615c5b496294eeee6de59f1b57a14e975d70bf2342dece1a9044"
+      },
+      {
+        "path": "internal/store/testdata",
+        "recursive": true,
+        "mode": "all",
+        "sha256": "b2c840b0a603355954566f77a4e8bb48ef0235d64478a2096ab35c8394eba6b2"
+      },
+      {
+        "path": "internal/uibuild",
+        "recursive": false,
+        "sha256": "89f3b85aa1a272aeb68e7ec3efb78cb05704936812507da71a22e37440d7fef3"
+      },
+      {
+        "path": "skills",
+        "recursive": true,
+        "mode": "go_embed",
+        "sha256": "9ca67bd1c25824c9dd38c6cc94813af8d4fa62122fa4fe3e88fdb4fc6e7fbec9"
+      }
+    ]
+  },
+  "environment": {
+    "platform": "darwin-arm64",
+    "started_at": "2026-11-09T13:20:55.742Z",
+    "finished_at": "2026-11-09T13:21:20.714Z",
+    "duration_ms": 24971
+  },
+  "result": "verified",
+  "assumptions": [
+    "results hold for the executed test cases only",
+    "third-party modules match go.sum"
+  ],
+  "scope": {
+    "bounded": true,
+    "bounds": {
+      "tests": 103,
+      "c4_failures": 0,
+      "c4_steps": 12000,
+      "c4_trace_file": "model/traces/depth-6.jsonl",
+      "c4_traces": 2000,
+      "e2e_binary": "built from the checkout",
+      "e2e_build": "08c6f75e968d6be8cf66540a52401a84ca590489b60b8f5425cc4dfe519b3b0b",
+      "model_digest": "50285fc39c023b0765c0156fafa34e1cf584bf4990b4d7d93059ed462b657c55"
+    },
+    "excluded": [],
+    "covered": [
+      "github.com/wim-web/prepare-dev/internal/core::TestQuestionAndRunFilesRoundTrip",
+      "github.com/wim-web/prepare-dev/internal/core::TestQuestionAndRunFilesRoundTrip/[D1]_written_by_the_TypeScript_version_(342bc64)",
+      "github.com/wim-web/prepare-dev/internal/core::TestJournalLinesRoundTrip",
+      "github.com/wim-web/prepare-dev/internal/core::TestJournalLinesRoundTrip/[D1]_written_by_the_TypeScript_version_(342bc64)",
+      "github.com/wim-web/prepare-dev/internal/core::TestRecordsRoundTripByteForByte",
+      "github.com/wim-web/prepare-dev/internal/core::TestRecordsRoundTripByteForByte/[D1]_written_by_the_TypeScript_version_(342bc64)",
+      "github.com/wim-web/prepare-dev/internal/core::TestPlainScalarResolution",
+      "github.com/wim-web/prepare-dev/internal/core::TestEmitQuoting",
+      "github.com/wim-web/prepare-dev/internal/core::TestLineSeparatorsRoundTrip",
+      "github.com/wim-web/prepare-dev/internal/core::TestLineSeparatorsRoundTrip/[D1]_strings_with_line_separators_and_control_characters_read_back_unchanged",
+      "github.com/wim-web/prepare-dev/internal/store::TestJournalConflicts",
+      "github.com/wim-web/prepare-dev/internal/store::TestJournalConflicts/[C3]_a_journal_written_by_one_writer_has_no_conflicts",
+      "github.com/wim-web/prepare-dev/internal/store::TestJournalConflicts/[C3]_entries_two_working_copies_numbered_from_the_same_base_are_reported",
+      "github.com/wim-web/prepare-dev/internal/store::TestJournalConflicts/[C3]_a_decision_an_earlier_version_wrote_again_as_rev_1_is_not_two_creations;_a_decision_of_two_transactions_still_is",
+      "github.com/wim-web/prepare-dev/internal/store::TestJournalConflicts/[C3]_with_a_conflicting_journal_the_store_opens,_reports_the_problem_and_writes_nothing",
+      "github.com/wim-web/prepare-dev/internal/store::TestJournalConflicts/[C3]_merge_conflict_markers_in_the_journal_stop_the_daemon_with_a_hint",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestModelTraces",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestModelTraces/[C4]_implementation_agrees_with_the_Lean_model_on_every_generated_trace",
+      "github.com/wim-web/prepare-dev/internal/server::TestHTTP",
+      "github.com/wim-web/prepare-dev/internal/server::TestHTTP/[U2]_the_old_UI_endpoint_is_gone,_a_question_with_UI_data_is_refused,_and_other_origins_are_refused",
+      "github.com/wim-web/prepare-dev/internal/server::TestHTTP/[A1]_answers_are_accepted_only_from_the_decision_UI:_a_request_without_the_page's_Origin_is_refused",
+      "github.com/wim-web/prepare-dev/internal/server::TestHTTP/[P3]_refuses_new_work_and_an_already-open_request_body_after_accepting_shutdown",
+      "github.com/wim-web/prepare-dev/internal/server::TestHTTP/shutdown_needs_the_token",
+      "github.com/wim-web/prepare-dev/internal/plugin/vitest::TestInputs",
+      "github.com/wim-web/prepare-dev/internal/plugin/vitest::TestInputs/[V1]_includes_dependency_metadata_and_transitive_imports_of_extra_implementation_and_config_files",
+      "github.com/wim-web/prepare-dev/internal/plugin/gotest::TestInputs",
+      "github.com/wim-web/prepare-dev/internal/plugin/gotest::TestInputs/[V3]_includes_the_sources_and_embedded_files_of_the_packages_the_tests_build,_go.mod_and_implementation_files",
+      "github.com/wim-web/prepare-dev/internal/uibuild::TestEmbeddedBuild",
+      "github.com/wim-web/prepare-dev/internal/uibuild::TestEmbeddedBuild/[B1]_the_committed_UI_build_was_made_from_the_current_UI_sources",
+      "github.com/wim-web/prepare-dev/internal/uibuild::TestEmbeddedBuild/[B1]_a_source_change_after_the_build,_or_a_changed_output,_is_detected",
+      "github.com/wim-web/prepare-dev/internal/plugin/gotest::TestInputs/[V3]_includes_packages_the_tests_build_at_run_time,_testdata,_impl_files_patterns,_non-Go_sources_and_local_replacements,_but_not_test_files_of_dependencies",
+      "github.com/wim-web/prepare-dev/internal/plugin/gotest::TestInputs/[V3]_a_file_added_to_a_package,_testdata_or_a_pattern's_directory_changes_its_listing",
+      "github.com/wim-web/prepare-dev/internal/plugin/gotest::TestInputs/[V3]_runs_go_test_without_the_cache_and_maps_test_names_to_claims",
+      "github.com/wim-web/prepare-dev/internal/plugin/vitest::TestInputs/[V1]_resolves_like_the_bundler:_tsconfig_paths_and_assets_are_inputs,_installed_packages_and_type-only_imports_are_not",
+      "github.com/wim-web/prepare-dev/internal/plugin/vitest::TestInputs/[V1]_resolves_extensionless_imports_in_Vite's_order_and_records_the_directories_of_imports",
+      "github.com/wim-web/prepare-dev/internal/plugin/vitest::TestInputs/detects_vitest_installed_only_under_the_project_dir",
+      "github.com/wim-web/prepare-dev/internal/plugin/vitest::TestInputs/[V1]_includes_ancestor_lockfiles_for_a_nested_project",
+      "github.com/wim-web/prepare-dev/internal/plugin/vitest::TestFailuresOutsideTests",
+      "github.com/wim-web/prepare-dev/internal/plugin/vitest::TestFailuresOutsideTests/[V4]_a_file_that_fails_outside_its_tests_(afterAll)_verifies_none_of_its_claims,_also_when_one_of_its_tests_failed",
+      "github.com/wim-web/prepare-dev/internal/plugin/vitest::TestFailuresOutsideTests/[V4]_a_file_that_cannot_be_loaded_fails_the_claims_whose_ref's_file_part_matches_it",
+      "github.com/wim-web/prepare-dev/internal/plugin/vitest::TestFailuresOutsideTests/[V4]_an_unhandled_error_fails_the_claims_of_its_test_file,_also_when_another_file_failed;_one_without_a_file_leaves_no_claim_verified",
+      "github.com/wim-web/prepare-dev/internal/plugin/vitest::TestFailuresOutsideTests/[V4]_an_afterAll_that_throws_inside_a_describe_is_seen_from_the_reporter,_also_when_another_test_of_the_file_failed",
+      "github.com/wim-web/prepare-dev/internal/plugin/vitest::TestFailuresOutsideTests/[V4]_a_non-zero_exit_that_no_failed_test,_file_or_unhandled_error_explains_verifies_no_claim",
+      "github.com/wim-web/prepare-dev/internal/plugin/vitest::TestFailuresOutsideTests/[V4]_the_reporter_module_writes_unhandled_errors_to_the_given_path",
+      "github.com/wim-web/prepare-dev/internal/e2e::TestDistribution",
+      "github.com/wim-web/prepare-dev/internal/e2e::TestDistribution/[P1]_the_relocated_binary_runs_the_question,_answer,_decision_and_trace_flow_without_Node.js,_Go_or_the_checkout",
+      "github.com/wim-web/prepare-dev/internal/plugin/gotest::TestEmbedListings",
+      "github.com/wim-web/prepare-dev/internal/plugin/gotest::TestEmbedListings/[V3]_a_file_added_under_a_directory_that_go:embed_assets/*_matches_makes_the_old_evidence_stale,_and_a_new_run_fails",
+      "github.com/wim-web/prepare-dev/internal/e2e::TestDistribution/[P2]_init_copies_the_skills,_writes_no_MCP_configuration,_is_idempotent_and_keeps_edits",
+      "github.com/wim-web/prepare-dev/internal/plugin/gotest::TestEmbedListings/[V3]_the_listings_of_go:embed_patterns_change_exactly_when_the_files_go_list_embeds_do",
+      "github.com/wim-web/prepare-dev/internal/e2e::TestDistribution/[P3]_one_writer_per_root;_stop,_restart,_a_killed_daemon_is_replaced,_another_build_is_refused,_a_daemon_without_its_lease_stops",
+      "github.com/wim-web/prepare-dev/internal/plugin/gotest::TestPackageFailures",
+      "github.com/wim-web/prepare-dev/internal/plugin/gotest::TestPackageFailures/[V4]_a_package_whose_test_binary_fails_after_its_tests_passed_(TestMain's_exit_code)_verifies_none_of_its_claims",
+      "github.com/wim-web/prepare-dev/internal/e2e::TestDistribution/[P3]_a_daemon.json_of_the_TypeScript_version_whose_lease_port_is_taken_is_not_taken_over",
+      "github.com/wim-web/prepare-dev/internal/plugin/gotest::TestPackageFailures/[V4]_a_panic_outside_the_tests_is_seen_even_when_another_test_of_the_package_failed",
+      "github.com/wim-web/prepare-dev/internal/e2e::TestDistribution/[P3]_prepare/_merged_from_two_working_copies_is_refused_with_what_to_do",
+      "github.com/wim-web/prepare-dev/internal/plugin/gotest::TestPackageFailures/[V4]_a_test_that_panics_stops_the_test_binary,_so_the_claims_its_package's_ref_matches_fail,_the_tests_after_it_included",
+      "github.com/wim-web/prepare-dev/internal/e2e::TestDistribution/[P3]_a_daemon_whose_journal_Git_replaced_writes_nothing_and_stops",
+      "github.com/wim-web/prepare-dev/internal/plugin/gotest::TestPackageFailures/[V4]_a_package_that_fails_to_build_fails_the_claims_whose_ref's_package_part_matches_it,_with_the_compiler's_first_error",
+      "github.com/wim-web/prepare-dev/internal/plugin/gotest::TestPackageFailures/[V4]_a_goroutine_a_test_left_that_panics_while_another_test_runs_fails_every_claim_of_the_package",
+      "github.com/wim-web/prepare-dev/internal/e2e::TestDistribution/[A1]_the_CLI_has_no_answer_command_and_there_is_no_MCP_entry;_the_API_takes_answers_from_the_decision_UI_only",
+      "github.com/wim-web/prepare-dev/internal/e2e::TestDistribution/[P1]_the_relocated_binary_verifies_a_Lean_theorem_with_the_real_lake_and_trace_links_the_evidence",
+      "github.com/wim-web/prepare-dev/internal/plugin/gotest::TestPackageFailures/[V4]_a_package_that_ends_before_running_its_tests_gives_its_last_line_as_the_reason",
+      "github.com/wim-web/prepare-dev/internal/plugin/gotest::TestPackageFailures/[V4]_a_non-zero_exit_of_go_test_that_no_failed_package_or_test_explains_verifies_no_claim",
+      "github.com/wim-web/prepare-dev/internal/e2e::TestCrashRecovery",
+      "github.com/wim-web/prepare-dev/internal/e2e::TestCrashRecovery/[C3]_killed_after_stage_question_->_abort",
+      "github.com/wim-web/prepare-dev/internal/e2e::TestCrashRecovery/[C3]_killed_after_stage_commit_->_committed",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestTraceProvenance",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestTraceProvenance/[C4][C5]_the_replayed_traces_were_checked_against_the_current_Lean_model",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions/[U2]_accepts_question_data,_preserves_legacy_display_fields,_and_rejects_invalid_answers",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions/[C1][C3][C6]_public_reads_and_notifications_never_expose_a_provisional_application",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions/[C1]_M1-1,2,7:_create,_answer,_wait,_apply_once,_trace",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions/[C3]_M1-3:_wait_interrupted,_then_answered:_pending_still_returns_it",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions/[C3]_M1-4:_ack_then_restart_before_apply:_the_answer_stays_pending",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions/[C2]_M1-5:_subject_edited_through_the_runtime_after_the_answer:_apply_is_rejected_as_stale",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions/[C2]_M1-6:_external_edit_without_rev_change_and_index_regeneration:_apply_is_rejected",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions/[C1][C3]_M1-8:_crash_after_stage_a,_b_or_c,_restart:_exactly_one_decision,_rolled_forward",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions/[C3]_a_deleted_decision_file_is_written_again_from_the_journal_with_the_next_rev,_and_the_next_start_still_writes",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions/[C3]_a_transaction_whose_question_file_is_gone_or_lacks_its_answer_is_shown,_and_nothing_is_written_until_the_file_is_back",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions/[C3]_the_question_file_of_an_aborted,_cleaned-up_transaction_that_cannot_be_read_is_shown,_and_status_does_not_fail",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions/[C3]_a_decision_of_the_same_number_made_with_record_create_in_another_working_copy_is_reported,_and_nothing_is_written",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions/[C2][C3]_M1-9:_crash_after_stage_c,_subject_edited_while_down,_restart:_abort,_nothing_public,_answer_pending_and_stale",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions/[C1]_M1-10:_crash_after_commit_before_the_response,_subject_edited,_retry:_original_result,_no_retraction",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions/close:_closes_an_unprocessed_answer_and_refuses_to_close_an_applied_one",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestQuestions/record_put:_conflict_on_a_wrong_expected_version",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestRecoveryTraces",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestRecoveryTraces/[C3][C5][C6]_replays_Lean_recovery_traces_including_repeated_crashes_at_every_abort-cleanup_write",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestRuns",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestRuns/[V2]_reserves_distinct_run_ids_before_asynchronous_verification_finishes_and_after_restart",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestRuns/[V1]_a_run_stops_applying_when_the_spec,_the_requirement_or_an_input_file_changes,_and_the_trace_shows_no_current_evidence",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestRuns/[V1]_while_nothing_is_written_(a_transaction_cannot_be_recovered),_an_edited_requirement_still_makes_a_run_stop_applying",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestReviews",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestReviews/validates_review_frontmatter,_counts_unaddressed_findings_in_status,_and_lists_reviews_in_trace",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestReviews/bundles_records_at_pinned_versions_with_related_decisions_and_writes_the_file",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestReviews/status_lists_questions_still_waiting_for_the_human,_and_flags_ones_whose_subjects_moved",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestReviews/re-asks_a_question_at_new_subject_versions_by_cancelling_the_unanswered_old_one",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestReviews/trace_follows_links_in_both_directions_so_DIS_→_REQ_→_DES_→_SPEC_can_be_walked",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestOperationalProblems",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestOperationalProblems/a_question_file_that_cannot_be_read_is_a_problem;_status,_the_question_list_and_trace_go_on_with_the_others",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestOperationalProblems/a_question_file_that_cannot_be_read_for_its_permissions_is_a_problem_too;_status_and_the_question_list_go_on_with_the_others",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestOperationalProblems/a_reserved_run_without_a_record_is_reported_as_incomplete",
+      "github.com/wim-web/prepare-dev/internal/runtime::TestOperationalProblems/two_files_with_one_id_are_a_problem_and_neither_is_rewritten"
+    ]
+  },
+  "artifacts": [
+    {
+      "kind": "report",
+      "path": "prepare/runs/RUN-0026/go-test.jsonl"
+    },
+    {
+      "kind": "log",
+      "path": "prepare/runs/RUN-0026/go-test.stderr.log"
+    }
+  ],
+  "summary": "103/103 tests passed (go version go1.27.3 darwin/arm64)"
+}

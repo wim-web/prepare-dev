@@ -1,8 +1,10 @@
 package vitest
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/wim-web/prepare-dev/internal/core"
@@ -163,6 +165,121 @@ func TestInputs(t *testing.T) {
 		for _, want := range []string{"package.json", "yarn.lock", "apps/site/package.json"} {
 			if _, ok := got[want]; !ok {
 				t.Fatalf("missing input %s in %v", want, got)
+			}
+		}
+	})
+}
+
+// The report shapes below are what Vitest 5.1.0 writes (checked by running it): an
+// afterAll that throws fails its file and gives it a message while every test passed;
+// a file that cannot be loaded is failed with a message and no tests; an unhandled
+// error exits with 1, leaves the report saying success, and reaches only reporters
+// (the plugin's reporter writes it with the test file it came from).
+func TestFailuresOutsideTests(t *testing.T) {
+	claim := func(id, ref string) plugin.JobClaim {
+		return plugin.JobClaim{Spec: "SPEC-0004", Claim: id, SpecRef: core.SubjectRef{ID: "SPEC-0004", Rev: 1, SHA256: "x"}, NativeRef: ref}
+	}
+	// parseRaw parses a run whose report is reportJSON; rw gives the rest of what the
+	// plugin's reporter wrote
+	parseRaw := func(t *testing.T, rw *raw, reportJSON string, claims ...plugin.JobClaim) *core.RunRecord {
+		t.Helper()
+		var rep report
+		if err := json.Unmarshal([]byte(reportJSON), &rep); err != nil {
+			t.Fatal(err)
+		}
+		job := &plugin.Job{Root: "/p", RunID: "RUN-test", Plugin: "vitest", Targets: []string{"a.test.ts", "b.test.ts"}, Config: core.NewOMap(), Claims: claims}
+		rw.version, rw.report, rw.unhandledKnown = "test", &rep, true
+		rec, err := New().Parse(plugin.RawOutput{Data: rw}, job, plugin.Inputs{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return rec
+	}
+	parse := func(t *testing.T, code int, reportJSON string, unhandled []unhandledError, claims ...plugin.JobClaim) *core.RunRecord {
+		t.Helper()
+		return parseRaw(t, &raw{code: code, unhandled: unhandled}, reportJSON, claims...)
+	}
+	results := func(rec *core.RunRecord) map[string]string {
+		out := map[string]string{}
+		for _, c := range rec.Claims {
+			out[c.Claim] = c.Result
+		}
+		return out
+	}
+	t.Run("[V4] a file that fails outside its tests (afterAll) verifies none of its claims, also when one of its tests failed", func(t *testing.T) {
+		rec := parse(t, 1, `{"numTotalTests":4,"numPassedTests":3,"numFailedTests":1,"success":false,"testResults":[
+			{"name":"/p/a.test.ts","status":"passed","message":"","assertionResults":[{"fullName":"[C1] passes","status":"passed","failureMessages":[]}]},
+			{"name":"/p/b.test.ts","status":"failed","message":"teardown broke\n    at b.test.ts:3","assertionResults":[{"fullName":"[C2] ok","status":"passed","failureMessages":[]}]},
+			{"name":"/p/d.test.ts","status":"failed","message":"teardown broke too","assertionResults":[{"fullName":"[C4] ok","status":"passed","failureMessages":[]},{"fullName":"[C4x] fails","status":"failed","failureMessages":["expected 1 to be 2"]}]}]}`, nil,
+			claim("C1", "a.test.ts::[C1]"), claim("C2", "b.test.ts::[C2]"), claim("C4", "d.test.ts::[C4]"))
+		if r := results(rec); r["C1"] != "verified" || r["C2"] != "failed" || r["C4"] != "failed" || rec.Result != "failed" || !strings.Contains(rec.Summary, "teardown broke") || !strings.Contains(rec.Summary, "teardown broke too") {
+			t.Fatalf("%v %s: %s", r, rec.Result, rec.Summary)
+		}
+	})
+	t.Run("[V4] a file that cannot be loaded fails the claims whose ref's file part matches it", func(t *testing.T) {
+		rec := parse(t, 1, `{"numTotalTests":1,"numPassedTests":1,"numFailedTests":0,"success":false,"testResults":[
+			{"name":"/p/c.test.ts","status":"failed","message":"Cannot find module './missing-module' imported from /p/c.test.ts","assertionResults":[]},
+			{"name":"/p/e.test.ts","status":"passed","message":"","assertionResults":[{"fullName":"[C5] clean","status":"passed","failureMessages":[]}]}]}`, nil,
+			claim("C3", "c.test.ts::[C3]"), claim("C5", "e.test.ts::[C5]"), claim("C6", "::[C6]"))
+		// which tests c.test.ts had is not known, so a ref without a file part counts it
+		if r := results(rec); r["C3"] != "failed" || r["C5"] != "verified" || r["C6"] != "failed" || !strings.Contains(rec.Summary, "Cannot find module") {
+			t.Fatalf("%v %s: %s", r, rec.Result, rec.Summary)
+		}
+	})
+	t.Run("[V4] an unhandled error fails the claims of its test file, also when another file failed; one without a file leaves no claim verified", func(t *testing.T) {
+		report := `{"numTotalTests":3,"numPassedTests":2,"numFailedTests":1,"success":false,"testResults":[
+			{"name":"/p/a.test.ts","status":"passed","message":"","assertionResults":[{"fullName":"[C1] passes","status":"passed","failureMessages":[]}]},
+			{"name":"/p/b.test.ts","status":"failed","message":"","assertionResults":[{"fullName":"[C2] fails","status":"failed","failureMessages":["expected 1 to be 2"]}]},
+			{"name":"/p/e.test.ts","status":"passed","message":"","assertionResults":[{"fullName":"[C5] clean","status":"passed","failureMessages":[]}]}]}`
+		rec := parse(t, 1, report, []unhandledError{{File: "/p/a.test.ts", Test: "[C1] passes", Name: "Error", Message: "late failure"}},
+			claim("C1", "a.test.ts::[C1]"), claim("C2", "b.test.ts::[C2]"), claim("C5", "e.test.ts::[C5]"))
+		if r := results(rec); r["C1"] != "failed" || r["C2"] != "failed" || r["C5"] != "verified" || !strings.Contains(rec.Summary, "unhandled error: late failure") {
+			t.Fatalf("%v %s: %s", r, rec.Result, rec.Summary)
+		}
+		rec = parse(t, 1, report, []unhandledError{{Message: "lost"}}, claim("C5", "e.test.ts::[C5]"))
+		if r := results(rec); r["C5"] != "failed" || rec.Result != "failed" || !strings.Contains(rec.Summary, "where it happened is not known") {
+			t.Fatalf("%v %s: %s", r, rec.Result, rec.Summary)
+		}
+		// without isolation an error reported in one file may come from another file's test
+		rec = parseRaw(t, &raw{code: 1, unhandled: []unhandledError{{File: "/p/a.test.ts", Message: "late failure"}}, isolateOff: true}, report,
+			claim("C1", "a.test.ts::[C1]"), claim("C5", "e.test.ts::[C5]"))
+		if r := results(rec); r["C1"] != "failed" || r["C5"] != "failed" || !strings.Contains(rec.Summary, "not isolated") {
+			t.Fatalf("%v %s: %s", r, rec.Result, rec.Summary)
+		}
+	})
+	t.Run("[V4] an afterAll that throws inside a describe is seen from the reporter, also when another test of the file failed", func(t *testing.T) {
+		// the JSON report leaves it out of the file's message
+		report := `{"numTotalTests":3,"numPassedTests":2,"numFailedTests":1,"success":false,"testResults":[
+			{"name":"/p/d.test.ts","status":"failed","message":"","assertionResults":[{"fullName":"inner [N1] ok","status":"passed","failureMessages":[]},{"fullName":"[N2] fails","status":"failed","failureMessages":["expected 1 to be 2"]}]},
+			{"name":"/p/e.test.ts","status":"passed","message":"","assertionResults":[{"fullName":"[C5] clean","status":"passed","failureMessages":[]}]}]}`
+		rec := parseRaw(t, &raw{code: 1, fileErrors: map[string][]string{"/p/d.test.ts": {"nested teardown broke"}}, hook: "onTestRunEnd"}, report,
+			claim("N1", "d.test.ts::[N1]"), claim("C5", "e.test.ts::[C5]"))
+		if r := results(rec); r["N1"] != "failed" || r["C5"] != "verified" || !strings.Contains(rec.Summary, "nested teardown broke") || strings.Contains(rec.Summary, "onFinished") {
+			t.Fatalf("%v %s: %s", r, rec.Result, rec.Summary)
+		}
+		// an earlier Vitest calls onFinished, whose task tree was not checked with a real Vitest
+		rec = parseRaw(t, &raw{code: 1, fileErrors: map[string][]string{"/p/d.test.ts": {"nested teardown broke"}}, hook: "onFinished"}, report,
+			claim("N1", "d.test.ts::[N1]"))
+		if r := results(rec); r["N1"] != "failed" || !strings.Contains(rec.Summary, "read through onFinished") {
+			t.Fatalf("%v %s: %s", r, rec.Result, rec.Summary)
+		}
+	})
+	t.Run("[V4] a non-zero exit that no failed test, file or unhandled error explains verifies no claim", func(t *testing.T) {
+		rec := parse(t, 1, `{"numTotalTests":1,"numPassedTests":1,"numFailedTests":0,"success":true,"testResults":[
+			{"name":"/p/a.test.ts","status":"passed","message":"","assertionResults":[{"fullName":"[C1] passes","status":"passed","failureMessages":[]}]}]}`, nil,
+			claim("C1", "a.test.ts::[C1]"))
+		if r := results(rec); r["C1"] != "failed" || rec.Result != "failed" || !strings.Contains(rec.Summary, "exited with status 1") {
+			t.Fatalf("%v %s: %s", r, rec.Result, rec.Summary)
+		}
+		if code, _ := rec.Tool.Extra.Get("exit_code"); code != int64(1) {
+			t.Fatalf("tool.extra.exit_code: %v", code)
+		}
+	})
+	t.Run("[V4] the reporter module writes unhandled errors to the given path", func(t *testing.T) {
+		src := string(unhandledReporter("/p/out \"x\".json"))
+		for _, want := range []string{`const out = "/p/out \"x\".json";`, "VITEST_TEST_PATH", "onTestRunEnd(testModules, unhandledErrors)", "onFinished(files, errors)", "allSuites()", "isolate !== false"} {
+			if !strings.Contains(src, want) {
+				t.Fatalf("missing %q in:\n%s", want, src)
 			}
 		}
 	})

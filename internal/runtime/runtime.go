@@ -37,9 +37,10 @@ func Open(root string, opts Options) (*Runtime, error) {
 		return nil, err
 	}
 	rt := &Runtime{Store: st, Questions: &Questions{store: st}}
-	// with a conflicting journal nothing is written, recovery included; the daemon
-	// still starts so that status can show the problems
-	if len(st.Blocked) == 0 {
+	// with a conflicting journal nothing is written, recovery included; neither when a
+	// transaction cannot be recovered (its question file is gone). The daemon still
+	// starts so that status can show the problems.
+	if len(st.Blocked) == 0 && len(st.Unrecoverable) == 0 {
 		rep, err := rt.Questions.Recover(opts.RecoveryHooks)
 		if err != nil {
 			return nil, err

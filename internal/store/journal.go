@@ -12,8 +12,23 @@ import (
 // decisions from the same base. It returns one message per conflict. Runs are not
 // checked: they are evidence, not part of the decision state, and the journal keeps a
 // historical duplicate (RUN-0006, two jobs that shared one id).
+//
+// A record written again after its file was lost continues its revs (Store.WriteRecord),
+// so one writer creates an id once. Earlier versions (the TypeScript version, and the Go
+// version up to 85477c7) wrote a lost decision file again as rev 1; so a second rev 1 of
+// a decision that exactly one apply transaction allocated is not counted. Two working
+// copies that allocated one decision are found as two transactions of it.
 func ValidateJournal(events []core.Event) []string {
 	var out []string
+	allocations := map[string]map[string]bool{} // decision id -> txids of its intents
+	for _, e := range events {
+		if e.Type == "apply.intent" {
+			if allocations[e.DecisionID] == nil {
+				allocations[e.DecisionID] = map[string]bool{}
+			}
+			allocations[e.DecisionID][e.TxID] = true
+		}
+	}
 	created := map[string]bool{}
 	questions := map[string]bool{}
 	answers := map[string]bool{}
@@ -25,7 +40,7 @@ func ValidateJournal(events []core.Event) []string {
 		switch e.Type {
 		case "record.write":
 			if e.Rev == 1 {
-				if created[e.ID] {
+				if created[e.ID] && len(allocations[e.ID]) != 1 {
 					out = append(out, fmt.Sprintf("line %d: record %s is created twice", line, e.ID))
 				}
 				created[e.ID] = true

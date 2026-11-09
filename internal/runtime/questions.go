@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -101,7 +102,15 @@ func (qs *Questions) List() ([]*core.Question, error) {
 	for _, id := range qs.store.ListQuestionIDs() {
 		q, err := qs.Read(id)
 		if err != nil {
-			return nil, err
+			// a file that cannot be read (broken JSON, an invalid question, no permission,
+			// one removed meanwhile) is left out, like a record that cannot be parsed:
+			// status, the question list and trace go on with the others (Store.ScanAll
+			// shows it in the problems). Only an unusable store stops the list.
+			var re *core.RuntimeError
+			if errors.As(err, &re) && re.Code == "dead" {
+				return nil, err
+			}
+			continue
 		}
 		out = append(out, q)
 	}
@@ -504,7 +513,11 @@ func (qs *Questions) RecoveryPending() (bool, error) {
 		}
 		q, err := qs.store.ReadQuestion(i.QuestionID)
 		if err != nil {
-			return false, err
+			var re *core.RuntimeError
+			if errors.As(err, &re) && re.Code == "dead" {
+				return false, err
+			}
+			return true, nil // its clean-up cannot be checked; status shows why (Unrecoverable)
 		}
 		for _, a := range q.Answers {
 			if a.AnswerID == i.AnswerID && ((a.AppliedAs != nil && a.AppliedAs.TxID == i.TxID) || !a.Stale) {
@@ -615,6 +628,11 @@ func (qs *Questions) afterStage(hook func(string) error, stage string) error {
 // rollForward runs stages b, c and d; each skips work already done.
 func (qs *Questions) rollForward(intent core.Event, hooks *ApplyHooks) (ApplyResult, error) {
 	hook := hookOf(hooks)
+	// the question's file holds the answers, which the journal does not; without it the
+	// transaction cannot be finished, so nothing is written for it
+	if _, err := qs.store.ReadQuestion(intent.QuestionID); err != nil {
+		return ApplyResult{}, qs.missingQuestion(intent, err)
+	}
 	// stage b: decision file (provisional until commit)
 	if !qs.store.HasRecord(intent.DecisionID) {
 		d := intent.Decision
@@ -794,7 +812,7 @@ func (qs *Questions) ensureCommittedFiles(intent core.Event) error {
 	}
 	q, err := qs.store.ReadQuestion(intent.QuestionID)
 	if err != nil {
-		return err
+		return qs.missingQuestion(intent, err)
 	}
 	for i := range q.Answers {
 		a := &q.Answers[i]
@@ -804,6 +822,17 @@ func (qs *Questions) ensureCommittedFiles(intent core.Event) error {
 		}
 	}
 	return nil
+}
+
+// missingQuestion says which file to restore when a transaction's question file is
+// gone: the answers in it are not in the journal, so it cannot be written again.
+func (qs *Questions) missingQuestion(intent core.Event, err error) error {
+	var re *core.RuntimeError
+	if !errors.As(err, &re) || re.Code != "not_found" {
+		return err
+	}
+	path := filepath.Join(qs.store.Config.RecordsDir, "questions", intent.QuestionID+".json")
+	return core.Errf("not_found", fmt.Sprintf("transaction %s of %s needs %s, which is missing: the answers in it are not in the journal, so it cannot be written again; restore the file (from git, for example) and start again", intent.TxID, intent.AnswerID, path), "question", intent.QuestionID, "path", path)
 }
 
 func contains(list []string, s string) bool {

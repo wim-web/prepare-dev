@@ -2,8 +2,9 @@
 // depends on: every file go list reports for the packages the tests build (and for the
 // packages in config input_packages, which the tests build themselves), the testdata
 // directories of the tested packages, the files of config impl_files, and the module
-// files. It also records the listings of those directories, so that an added file
-// makes the evidence stale like a changed one.
+// files. It also records listings of the directories where a new file could change the
+// result (the packages' directories, what go:embed patterns match, testdata), so that
+// an added file makes the evidence stale like a changed one.
 package gotest
 
 import (
@@ -97,7 +98,7 @@ type Plugin struct{}
 func New() *Plugin { return &Plugin{} }
 
 func (p *Plugin) Name() string    { return "gotest" }
-func (p *Plugin) Version() string { return "0.1.0" }
+func (p *Plugin) Version() string { return "0.2.0" }
 
 func (p *Plugin) Capabilities() plugin.Capabilities {
 	return plugin.Capabilities{Languages: []string{"go"}, Methods: []string{"test"}, Properties: []string{"example", "property", "conformance"}, Tools: []string{"go"}}
@@ -137,7 +138,10 @@ type listedPackage struct {
 
 	GoFiles, CgoFiles, CFiles, CXXFiles, MFiles, HFiles, FFiles, SFiles []string
 	SwigFiles, SwigCXXFiles, SysoFiles, EmbedFiles                      []string
-	EmbedPatterns                                                       []string
+	// EmbedPatterns are the package's own; the patterns of its test files are only
+	// on the package itself (not on "p [p.test]"), in TestEmbedPatterns and
+	// XTestEmbedPatterns.
+	EmbedPatterns, TestEmbedPatterns, XTestEmbedPatterns []string
 }
 
 func (lp *listedPackage) files() []string {
@@ -213,17 +217,12 @@ func (p *Plugin) Inputs(job *plugin.Job) (plugin.Inputs, error) {
 	}
 	vendorDir := filepath.Join(realProject, "vendor")
 	var files []string
-	listed := map[string]bool{} // directory -> listing recorded (recursive or not)
-	type listing struct {
-		dir       string
-		recursive bool
-	}
-	var dirs []listing
-	addDir := func(dir string, recursive bool) {
-		key := fmt.Sprintf("%s|%v", dir, recursive)
-		if !listed[key] {
-			listed[key] = true
-			dirs = append(dirs, listing{dir, recursive})
+	listed := map[dirListing]bool{}
+	var dirs []dirListing
+	addDir := func(l dirListing) {
+		if !listed[l] {
+			listed[l] = true
+			dirs = append(dirs, l)
 		}
 	}
 	testdata := map[string]bool{}
@@ -235,14 +234,25 @@ func (p *Plugin) Inputs(job *plugin.Job) (plugin.Inputs, error) {
 		if r.Code != 0 {
 			return fmt.Errorf("go list failed: %s", strings.TrimSpace(r.Stderr))
 		}
+		var listedPkgs []listedPackage
 		dec := json.NewDecoder(strings.NewReader(r.Stdout))
 		for {
 			var lp listedPackage
 			if err := dec.Decode(&lp); err == io.EOF {
-				return nil
+				break
 			} else if err != nil {
 				return fmt.Errorf("go list output: %w", err)
 			}
+			listedPkgs = append(listedPkgs, lp)
+		}
+		// with -test, the packages whose tests are built appear as ForTest of "p [p.test]"
+		tested := map[string]bool{}
+		for _, lp := range listedPkgs {
+			if lp.ForTest != "" {
+				tested[lp.ForTest] = true
+			}
+		}
+		for _, lp := range listedPkgs {
 			if !lp.local(vendorDir) {
 				continue // the standard library, and modules pinned by go.sum
 			}
@@ -256,21 +266,22 @@ func (p *Plugin) Inputs(job *plugin.Job) (plugin.Inputs, error) {
 				compiled = true
 			}
 			if compiled {
-				addDir(dir, false) // a new file in the directory may join the package
+				addDir(dirListing{dir: dir}) // a new file in the directory may join the package
 			}
-			for _, pat := range lp.EmbedPatterns {
-				pat = strings.TrimPrefix(pat, "all:")
-				target := filepath.Join(dir, filepath.FromSlash(pat))
-				if st, err := os.Stat(target); err == nil && st.IsDir() {
-					addDir(target, true) // an embedded directory takes every file added to it
-				} else if strings.ContainsAny(pat, "*?[") {
-					addDir(filepath.Dir(target), false)
+			patterns := lp.EmbedPatterns
+			if lp.ForTest == "" && tested[lp.ImportPath] {
+				patterns = append(append(append([]string{}, patterns...), lp.TestEmbedPatterns...), lp.XTestEmbedPatterns...)
+			}
+			for _, pat := range patterns {
+				for _, l := range embedListings(dir, pat) {
+					addDir(l)
 				}
 			}
 			if lp.ForTest != "" {
 				testdata[filepath.Join(dir, "testdata")] = true
 			}
 		}
+		return nil
 	}
 	if err := list(append([]string{"list", "-deps", "-test", "-json"}, pkgs...)); err != nil {
 		return plugin.Inputs{}, err
@@ -296,7 +307,8 @@ func (p *Plugin) Inputs(job *plugin.Job) (plugin.Inputs, error) {
 			}
 			return nil
 		})
-		addDir(d, true)
+		// every name, as every file under testdata is an input (hidden ones too)
+		addDir(dirListing{dir: d, recursive: true, mode: plugin.ListAll})
 	}
 	sort.Strings(files)
 	for _, f := range files {
@@ -312,10 +324,20 @@ func (p *Plugin) Inputs(job *plugin.Job) (plugin.Inputs, error) {
 		}
 	}
 	sort.Slice(dirs, func(i, j int) bool {
-		return dirs[i].dir < dirs[j].dir || dirs[i].dir == dirs[j].dir && !dirs[i].recursive
+		a, b := dirs[i], dirs[j]
+		if a.dir != b.dir {
+			return a.dir < b.dir
+		}
+		if a.recursive != b.recursive {
+			return !a.recursive
+		}
+		if a.mode != b.mode {
+			return a.mode < b.mode
+		}
+		return a.match < b.match
 	})
 	for _, d := range dirs {
-		l, err := plugin.Listing(job.Root, d.dir, d.recursive)
+		l, err := plugin.ListingOf(job.Root, d.dir, d.recursive, d.mode, d.match)
 		if err != nil {
 			return plugin.Inputs{}, err
 		}
@@ -332,6 +354,66 @@ func (p *Plugin) Inputs(job *plugin.Job) (plugin.Inputs, error) {
 	return out, nil
 }
 
+// dirListing is a directory listing to record (see plugin.ListingDigest).
+type dirListing struct {
+	dir         string
+	recursive   bool
+	mode, match string
+}
+
+// embedListings returns the listings that change whenever the files a //go:embed
+// pattern takes from the package directory dir can change without a file it takes now
+// changing. go:embed matches the pattern one element at a time against the names in a
+// directory with filepath.Match (so "*" matches names beginning with "." too) and takes
+// every file under a matched directory, leaving out names beginning with "." or "_"
+// there unless the pattern starts with all:. So, from the first element with a wildcard
+// on, every directory searched gets a listing of the names its element matches, files
+// and directories alike, and every matched directory a listing of the files go:embed
+// takes from it.
+func embedListings(dir, pattern string) []dirListing {
+	tree := plugin.ListGoEmbed
+	if p, ok := strings.CutPrefix(pattern, "all:"); ok {
+		pattern, tree = p, plugin.ListAll
+	}
+	elems := strings.Split(pattern, "/")
+	var out []dirListing
+	searched := []string{dir}
+	wild := false
+	for i, elem := range elems {
+		meta := strings.ContainsAny(elem, "*?[\\")
+		wild = wild || meta
+		var next []string
+		for _, d := range searched {
+			if wild {
+				out = append(out, dirListing{dir: d, mode: plugin.ListAll, match: elem})
+			}
+			names := []string{elem}
+			if meta {
+				names = nil
+				entries, _ := os.ReadDir(d)
+				for _, e := range entries {
+					if ok, _ := filepath.Match(elem, e.Name()); ok {
+						names = append(names, e.Name())
+					}
+				}
+			}
+			for _, n := range names {
+				p := filepath.Join(d, n)
+				if st, err := os.Stat(p); err != nil || !st.IsDir() {
+					continue // a matched file is in EmbedFiles
+				}
+				if i == len(elems)-1 {
+					out = append(out, dirListing{dir: p, recursive: true, mode: tree})
+				} else {
+					next = append(next, p)
+				}
+			}
+		}
+		searched = next
+	}
+	return out
+}
+
 func fileExists(p string) bool {
 	st, err := os.Stat(p)
 	return err == nil && st.Mode().IsRegular()
@@ -342,6 +424,11 @@ type event struct {
 	Package string
 	Test    string
 	Output  string
+	// ImportPath is the build a build-output event belongs to (go 1.24 and later report
+	// compiler errors this way); FailedBuild, on a package's fail, names the build that
+	// failed.
+	ImportPath  string
+	FailedBuild string
 }
 
 type raw struct {
@@ -409,12 +496,21 @@ func (p *Plugin) Parse(out plugin.RawOutput, job *plugin.Job, inputs plugin.Inpu
 	var order []string
 	pkgStatus := map[string]string{}
 	pkgOutput := map[string][]string{}
+	buildOutput := map[string][]string{} // build (ImportPath) -> compiler output
+	failedBuild := map[string]string{}   // package -> the build that failed
 	timedOut := r.timedOut
 	for _, e := range r.events {
+		if e.Action == "build-output" {
+			buildOutput[e.ImportPath] = append(buildOutput[e.ImportPath], e.Output)
+			continue
+		}
 		if e.Test == "" {
 			switch e.Action {
 			case "pass", "fail", "skip":
 				pkgStatus[e.Package] = e.Action
+				if e.FailedBuild != "" {
+					failedBuild[e.Package] = e.FailedBuild
+				}
 			case "output":
 				pkgOutput[e.Package] = append(pkgOutput[e.Package], e.Output)
 				if strings.HasPrefix(e.Output, "panic: test timed out") {
@@ -437,12 +533,83 @@ func (p *Plugin) Parse(out plugin.RawOutput, job *plugin.Job, inputs plugin.Inpu
 			t.output = append(t.output, e.Output)
 		}
 	}
+	// A package can fail outside its tests: TestMain's exit code, a panic or an exit
+	// after the tests, a build that failed before any test ran. None of the claims with
+	// tests there is verified then. Such a failure is seen when no test of the package
+	// failed, and, when one did, if the package panicked outside its tests (go test
+	// puts a panic inside a test under that test); a failed test hides the rest, such as
+	// TestMain's own check that exits non-zero. A non-zero exit of go test that no failed
+	// package or test explains leaves no claim verified.
+	//
+	// The test binary can also end before all the package's tests ran: it failed to
+	// build or exited before running them (no test results), a test did not finish (go
+	// test puts what happens then, such as a panic of a goroutine another test left,
+	// under the running test), or a test panicked (the binary ends there). Which tests
+	// did not run is not known then, so such a package counts for every claim whose ref's
+	// package part matches it, like a package that failed to build.
+	failedOutside := map[string]bool{}
+	truncated := map[string]string{} // package -> why it ended before all its tests ran
+	anyFailure := false
+	for pkg, st := range pkgStatus {
+		if st != "fail" {
+			continue
+		}
+		anyFailure = true
+		explained := false
+		var unfinished, panicked *testResult
+		for _, k := range order {
+			t := tests[k]
+			if t.pkg != pkg {
+				continue
+			}
+			switch t.status {
+			case "fail":
+				explained = true
+				if panicked == nil && panicLine(t.output) != "" {
+					panicked = t
+				}
+			case "":
+				if unfinished == nil {
+					unfinished = t
+				}
+			}
+		}
+		switch {
+		case !hasTests(tests, pkg):
+			truncated[pkg] = "failed before running tests: " + firstFailureLine(buildOutput[failedBuild[pkg]], pkgOutput[pkg])
+		case unfinished != nil:
+			why := "stopped while " + unfinished.name + " ran"
+			if line := panicLine(unfinished.output); line != "" {
+				why += ": " + line
+			}
+			truncated[pkg] = why
+		case panicked != nil:
+			truncated[pkg] = "stopped when " + panicked.name + " panicked, so the tests after it did not run: " + panicLine(panicked.output)
+		}
+		if !explained || truncated[pkg] != "" || panicLine(pkgOutput[pkg]) != "" {
+			failedOutside[pkg] = true
+		}
+	}
+	truncatedPkgs := make([]string, 0, len(truncated))
+	for pkg := range truncated {
+		truncatedPkgs = append(truncatedPkgs, pkg)
+	}
+	sort.Strings(truncatedPkgs)
+	for _, t := range tests {
+		if t.status != "pass" && t.status != "skip" {
+			anyFailure = true
+		}
+	}
+	unexplainedExit := r.code != 0 && !timedOut && len(r.events) > 0 && !anyFailure
 	overall := "verified"
 	if timedOut {
 		overall = plugin.Worst(overall, "timeout")
 	}
 	if len(r.events) == 0 {
 		overall = plugin.Worst(overall, "tool_error")
+	}
+	if unexplainedExit {
+		overall = plugin.Worst(overall, "failed")
 	}
 	covered := []string{}
 	for _, k := range order {
@@ -461,17 +628,10 @@ func (p *Plugin) Parse(out plugin.RawOutput, job *plugin.Job, inputs plugin.Inpu
 			}
 		}
 		buildFailed := false
-		for pkg, st := range pkgStatus {
-			if st == "fail" && (pkgSuffix == "" || strings.HasSuffix(pkg, pkgSuffix)) && !hasTests(tests, pkg) {
+		for _, pkg := range truncatedPkgs {
+			if pkgSuffix == "" || strings.HasSuffix(pkg, pkgSuffix) {
 				buildFailed = true
-				first := ""
-				for _, line := range pkgOutput[pkg] {
-					if s := strings.TrimSpace(line); s != "" {
-						first = s
-						break
-					}
-				}
-				notes = append(notes, fmt.Sprintf("%s: package %s failed before running tests (%s)", cl.NativeRef, pkg, first))
+				notes = append(notes, fmt.Sprintf("%s: package %s %s", cl.NativeRef, pkg, truncated[pkg]))
 			}
 		}
 		result := "unknown"
@@ -498,6 +658,8 @@ func (p *Plugin) Parse(out plugin.RawOutput, job *plugin.Job, inputs plugin.Inpu
 				}
 			}
 			switch {
+			case passed == len(matched) && unexplainedExit:
+				result = "failed"
 			case passed == len(matched):
 				result = "verified"
 			case len(failed) > 0:
@@ -519,6 +681,18 @@ func (p *Plugin) Parse(out plugin.RawOutput, job *plugin.Job, inputs plugin.Inpu
 				notes = append(notes, note)
 			default:
 				notes = append(notes, fmt.Sprintf("%s: %d skipped", cl.NativeRef, skipped))
+			}
+			seen := map[string]bool{}
+			for _, m := range matched {
+				if failedOutside[m.pkg] && truncated[m.pkg] == "" && !seen[m.pkg] {
+					seen[m.pkg] = true
+					result = "failed"
+					note := fmt.Sprintf("%s: package %s failed outside its tests (the exit of the test binary, such as TestMain's)", cl.NativeRef, m.pkg)
+					if line := outsideLine(pkgOutput[m.pkg]); line != "" {
+						note += ": " + line
+					}
+					notes = append(notes, note)
+				}
 			}
 		}
 		overall = plugin.Worst(overall, result)
@@ -545,6 +719,9 @@ func (p *Plugin) Parse(out plugin.RawOutput, job *plugin.Job, inputs plugin.Inpu
 	if len(r.events) == 0 {
 		summary = fmt.Sprintf("go test produced no JSON events (exit %d)", r.code)
 	}
+	if unexplainedExit {
+		notes = append(notes, fmt.Sprintf("go test exited with status %d without a failed package or test, so no claim is verified (see the log)", r.code))
+	}
 	if len(notes) > 0 {
 		summary += ". " + strings.Join(notes, ". ")
 	}
@@ -557,7 +734,7 @@ func (p *Plugin) Parse(out plugin.RawOutput, job *plugin.Job, inputs plugin.Inpu
 		version = "unknown"
 	}
 	return &core.RunRecord{
-		Tool:        core.RunTool{Name: "go", Version: version, Extra: core.OM("path", plugin.ToolLocation("go"))},
+		Tool:        core.RunTool{Name: "go", Version: version, Extra: core.OM("path", plugin.ToolLocation("go"), "exit_code", int64(r.code))},
 		Method:      "test",
 		Claims:      claims,
 		Targets:     inputs.Targets,
@@ -568,6 +745,52 @@ func (p *Plugin) Parse(out plugin.RawOutput, job *plugin.Job, inputs plugin.Inpu
 		Artifacts:   out.Artifacts,
 		Summary:     summary,
 	}, nil
+}
+
+func clip(s string) string {
+	if rs := []rune(s); len(rs) > 160 {
+		return string(rs[:160])
+	}
+	return s
+}
+
+// panicLine is the first "panic:" or "fatal error:" line a package printed outside its
+// tests, or "".
+func panicLine(lines []string) string {
+	for _, l := range lines {
+		if s := strings.TrimSpace(l); strings.HasPrefix(s, "panic: ") || strings.HasPrefix(s, "fatal error: ") {
+			return clip(s)
+		}
+	}
+	return ""
+}
+
+// outsideLine says why a package failed outside its tests: its panic line, or else the
+// last line it printed outside its tests, without go test's own PASS, FAIL, ok and exit
+// status lines.
+func outsideLine(lines []string) string {
+	if s := panicLine(lines); s != "" {
+		return s
+	}
+	for i := len(lines) - 1; i >= 0; i-- {
+		s := strings.TrimSpace(lines[i])
+		if s == "" || s == "PASS" || s == "FAIL" || strings.HasPrefix(s, "FAIL\t") || strings.HasPrefix(s, "ok ") || strings.HasPrefix(s, "exit status ") {
+			continue
+		}
+		return clip(s)
+	}
+	return ""
+}
+
+// firstFailureLine says why a package failed before running tests: the first compiler
+// error of its build, or else what outsideLine says.
+func firstFailureLine(build, pkg []string) string {
+	for _, l := range build {
+		if s := strings.TrimSpace(l); s != "" && !strings.HasPrefix(s, "# ") {
+			return clip(s)
+		}
+	}
+	return outsideLine(pkg)
 }
 
 func hasTests(tests map[string]*testResult, pkg string) bool {

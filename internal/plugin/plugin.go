@@ -426,30 +426,84 @@ func matchSegments(pat, path []string) bool {
 
 var filepathMatch = filepath.Match
 
-// ListingDigest is sha256 over the sorted relative paths ("/"-separated) of the
-// regular files in dir, one per line; recursive walks subdirectories except skipped
-// ones. Hidden files (".DS_Store", ...) are left out, as Go leaves them out of
-// packages and embedded directories. A missing directory has the digest of no files.
-func ListingDigest(dir string, recursive bool) string {
+// Listing modes: which names under a directory a listing counts.
+const (
+	// ListFiles (the default) counts the regular files, without names beginning with
+	// "." (Go leaves them out of packages); a recursive listing does not enter
+	// node_modules or directories beginning with ".".
+	ListFiles = ""
+	// ListAll counts every name: those beginning with ".", directories (as "name/") and
+	// other entries too; a recursive listing enters every directory. It is for
+	// directories whose every name can matter, such as what a go:embed wildcard matches
+	// or what a test reads under testdata.
+	ListAll = "all"
+	// ListGoEmbed counts the regular files go:embed takes from a directory it embeds:
+	// names beginning with "." or "_" are left out with everything under them; every
+	// other directory is entered (node_modules too). A directory that starts another
+	// module is entered as well, which can only report a change go:embed would not see.
+	ListGoEmbed = "go_embed"
+)
+
+// ListingDigest is sha256 over the sorted names under dir that the mode counts, as
+// "/"-separated paths relative to dir, one per line. A non-empty match keeps only the
+// names in dir itself that match it (filepath.Match), for a non-recursive listing. A
+// missing directory has the digest of no names; an unknown mode has a digest no
+// directory has, so that a listing this version cannot recompute never applies.
+func ListingDigest(dir string, recursive bool, mode, match string) string {
 	var names []string
+	switch mode {
+	case ListFiles, ListAll, ListGoEmbed:
+	default:
+		return "unknown listing mode " + mode
+	}
+	keep := func(rel string, d fs.DirEntry) {
+		switch {
+		case mode == ListAll && d.IsDir():
+			names = append(names, rel+"/")
+		case mode == ListAll || d.Type().IsRegular():
+			names = append(names, rel)
+		}
+	}
+	// left reports whether a name below dir is left out, with everything under it
+	left := func(name string, isDir bool) bool {
+		switch mode {
+		case ListAll:
+			return false
+		case ListGoEmbed:
+			return strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")
+		}
+		if isDir {
+			return skipDir(name)
+		}
+		return strings.HasPrefix(name, ".")
+	}
 	if recursive {
 		_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
-			if err != nil {
+			if err != nil || p == dir {
 				return nil
 			}
-			if d.IsDir() && p != dir && skipDir(d.Name()) {
-				return filepath.SkipDir
+			if left(d.Name(), d.IsDir()) {
+				if d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
 			}
-			if d.Type().IsRegular() && !strings.HasPrefix(d.Name(), ".") {
-				rel, _ := filepath.Rel(dir, p)
-				names = append(names, filepath.ToSlash(rel))
+			if d.IsDir() && mode != ListAll {
+				return nil
 			}
+			rel, _ := filepath.Rel(dir, p)
+			keep(filepath.ToSlash(rel), d)
 			return nil
 		})
 	} else if entries, err := os.ReadDir(dir); err == nil {
 		for _, e := range entries {
-			if e.Type().IsRegular() && !strings.HasPrefix(e.Name(), ".") {
-				names = append(names, e.Name())
+			if match != "" {
+				if ok, err := filepath.Match(match, e.Name()); err != nil || !ok {
+					continue
+				}
+			}
+			if !left(e.Name(), e.IsDir()) {
+				keep(e.Name(), e)
 			}
 		}
 	}
@@ -461,13 +515,44 @@ func ListingDigest(dir string, recursive bool) string {
 	return core.SHA256Hex([]byte(b.String()))
 }
 
-// Listing records dir (absolute, under root) for the run.
+// Listing records dir (absolute, under root) for the run, counting regular files
+// (ListFiles).
 func Listing(root, dir string, recursive bool) (core.InputListing, error) {
+	return ListingOf(root, dir, recursive, ListFiles, "")
+}
+
+// ListingOf records dir (absolute, under root) with a mode and, for a non-recursive
+// listing, a name pattern (see ListingDigest).
+func ListingOf(root, dir string, recursive bool, mode, match string) (core.InputListing, error) {
 	rel, err := filepath.Rel(root, dir)
 	if err != nil {
 		return core.InputListing{}, err
 	}
-	return core.InputListing{Path: filepath.ToSlash(rel), Recursive: recursive, SHA256: ListingDigest(dir, recursive)}, nil
+	if recursive && match != "" {
+		return core.InputListing{}, fmt.Errorf("listing %s: a name pattern needs a non-recursive listing", rel)
+	}
+	return core.InputListing{Path: filepath.ToSlash(rel), Recursive: recursive, Mode: mode, Match: match, SHA256: ListingDigest(dir, recursive, mode, match)}, nil
+}
+
+// CurrentDigest recomputes a recorded listing's digest from the files under root now.
+func CurrentDigest(root string, l core.InputListing) string {
+	return ListingDigest(filepath.Join(root, filepath.FromSlash(l.Path)), l.Recursive, l.Mode, l.Match)
+}
+
+// ListingRef names a listing in a mismatch: "dir/" (one level), "dir/**" (recursive)
+// or "dir/<match>", with the mode when it is not the default.
+func ListingRef(l core.InputListing) string {
+	ref := l.Path + "/"
+	switch {
+	case l.Recursive:
+		ref += "**"
+	case l.Match != "":
+		ref += l.Match
+	}
+	if l.Mode != ListFiles {
+		ref += " (" + l.Mode + ")"
+	}
+	return ref
 }
 
 // ExpandPatterns resolves impl_files entries relative to root. A plain path names one

@@ -61,6 +61,32 @@ func TestJournalConflicts(t *testing.T) {
 			}
 		}
 	})
+	t.Run("[C3] a decision an earlier version wrote again as rev 1 is not two creations; a decision of two transactions still is", func(t *testing.T) {
+		// the TypeScript version and 85477c7 wrote a lost decision file again as rev 1
+		restored := []core.Event{
+			{Type: "record.write", ID: "REQ-0001", Rev: 1},
+			{Type: "question.create", QuestionID: "Q-0001"},
+			{Type: "answer.save", QuestionID: "Q-0001", AnswerID: "ANS-0001-1"},
+			{Type: "apply.intent", TxID: "a", AnswerID: "ANS-0001-1", DecisionID: "DEC-0001"},
+			{Type: "record.write", ID: "DEC-0001", Rev: 1},
+			{Type: "apply.commit", TxID: "a"},
+			{Type: "record.write", ID: "DEC-0001", Rev: 1},
+		}
+		if issues := ValidateJournal(restored); len(issues) > 0 {
+			t.Fatalf("a restored decision reads as a merge: %v", issues)
+		}
+		merged := append(append([]core.Event{}, restored...),
+			core.Event{Type: "question.create", QuestionID: "Q-0002"},
+			core.Event{Type: "answer.save", QuestionID: "Q-0002", AnswerID: "ANS-0002-1"},
+			core.Event{Type: "apply.intent", TxID: "b", AnswerID: "ANS-0002-1", DecisionID: "DEC-0001"})
+		if issues := strings.Join(ValidateJournal(merged), "\n"); !strings.Contains(issues, "decision DEC-0001 is allocated by two transactions") || !strings.Contains(issues, "record DEC-0001 is created twice") {
+			t.Fatalf("a decision of two transactions is not reported:\n%s", issues)
+		}
+		// a record that no transaction allocated (made with record create) still counts
+		if issues := strings.Join(ValidateJournal(append(append([]core.Event{}, restored...), core.Event{Type: "record.write", ID: "REQ-0001", Rev: 1})), "\n"); !strings.Contains(issues, "record REQ-0001 is created twice") {
+			t.Fatalf("a record created twice is not reported:\n%s", issues)
+		}
+	})
 	t.Run("[C3] with a conflicting journal the store opens, reports the problem and writes nothing", func(t *testing.T) {
 		root := t.TempDir()
 		s, err := Open(root)

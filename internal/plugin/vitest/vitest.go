@@ -173,7 +173,7 @@ type Plugin struct{}
 func New() *Plugin { return &Plugin{} }
 
 func (p *Plugin) Name() string    { return "vitest" }
-func (p *Plugin) Version() string { return "0.2.0" }
+func (p *Plugin) Version() string { return "0.3.0" }
 
 func (p *Plugin) Capabilities() plugin.Capabilities {
 	return plugin.Capabilities{Languages: []string{"typescript", "javascript"}, Methods: []string{"test"}, Properties: []string{"example", "property", "conformance"}, Tools: []string{"vitest"}}
@@ -330,7 +330,11 @@ type report struct {
 	NumTotalTests  int `json:"numTotalTests"`
 	NumPassedTests int `json:"numPassedTests"`
 	TestResults    []struct {
-		Name             string `json:"name"`
+		Name string `json:"name"`
+		// Status is "failed" also when the file failed outside its tests (an afterAll
+		// that throws, an import that fails); Message then says why.
+		Status           string `json:"status"`
+		Message          string `json:"message"`
 		AssertionResults []struct {
 			FullName        string   `json:"fullName"`
 			Status          string   `json:"status"`
@@ -345,6 +349,108 @@ type raw struct {
 	code     int
 	timedOut bool
 	report   *report
+	// unhandled are the run's unhandled errors as the plugin's reporter wrote them;
+	// unhandledKnown is false when it wrote nothing. fileErrors are the errors of each
+	// test file and its suites (an afterAll inside a describe), which the JSON report
+	// leaves out of the file's message; isolateOff is set when a project runs its test
+	// files without isolation, so that an error can come from another file's test.
+	unhandled      []unhandledError
+	unhandledKnown bool
+	fileErrors     map[string][]string
+	isolateOff     bool
+	// hook is the reporter hook that wrote: onTestRunEnd (Vitest 3 and later) or
+	// onFinished (earlier versions, whose task tree was not checked with a real Vitest)
+	hook string
+}
+
+// reporterOutput is what the plugin's reporter writes.
+type reporterOutput struct {
+	Errors []unhandledError `json:"errors"`
+	Files  []struct {
+		File   string   `json:"file"`
+		Errors []string `json:"errors"`
+	} `json:"files"`
+	Isolate *bool  `json:"isolate"`
+	Hook    string `json:"hook"`
+}
+
+// unhandledError is an error Vitest caught outside the tests' own results (an exception
+// thrown after a test, a rejected promise), with the test file and test it came from
+// when Vitest knows them.
+type unhandledError struct {
+	File    string `json:"file"`
+	Test    string `json:"test"`
+	Name    string `json:"name"`
+	Message string `json:"message"`
+}
+
+// unhandledReporter is a Vitest reporter module that writes to out what the JSON report
+// leaves out: the run's unhandled errors, with the test file and test they came from
+// (VITEST_TEST_PATH, VITEST_TEST_NAME); the errors of each test file and its suites (an
+// afterAll that throws inside a describe); and whether every project isolates its test
+// files. Vitest 3 and later call onInit and onTestRunEnd; earlier versions call
+// onFinished, which has no suites.
+func unhandledReporter(out string) []byte {
+	path, _ := json.Marshal(out)
+	return []byte(`import { writeFileSync } from "node:fs";
+const out = ` + string(path) + `;
+let written = false;
+let isolate = null;
+const text = (e) => String((e && e.message) || e || "");
+function write(errors, modules, hook) {
+  if (written) return;
+  written = true;
+  const list = Array.from(errors || [], (e) => ({
+    file: (e && e.VITEST_TEST_PATH) || "",
+    test: (e && e.VITEST_TEST_NAME) || "",
+    name: (e && e.name) || "",
+    message: text(e),
+  }));
+  const files = [];
+  for (const m of modules || []) {
+    const found = [];
+    try {
+      for (const e of (m.errors && m.errors()) || []) found.push(text(e));
+      if (m.children && m.children.allSuites) {
+        for (const suite of m.children.allSuites()) {
+          for (const e of (suite.errors && suite.errors()) || []) found.push(text(e));
+        }
+      }
+    } catch (e) {
+      found.push("the reporter could not read the errors: " + text(e));
+    }
+    if (found.length) files.push({ file: m.moduleId || "", errors: found });
+  }
+  writeFileSync(out, JSON.stringify({ errors: list, files, isolate, hook }) + "\n");
+}
+export default class PrepareDevUnhandledErrors {
+  onInit(vitest) {
+    try {
+      const projects = vitest.projects && vitest.projects.length ? vitest.projects : [vitest];
+      isolate = projects.every((p) => !p.config || p.config.isolate !== false);
+    } catch {}
+  }
+  onTestRunEnd(testModules, unhandledErrors) { write(unhandledErrors, testModules, "onTestRunEnd"); }
+  onFinished(files, errors) {
+    // before Vitest 3: files are tasks, and a file's or suite's errors are in result.errors
+    const errorsOf = (task) => () => (task.result && task.result.errors) || [];
+    const suites = function* (task) {
+      for (const t of task.tasks || []) {
+        if (t.type === "suite") {
+          yield { errors: errorsOf(t) };
+          yield* suites(t);
+        }
+      }
+    };
+    const modules = Array.from(files || [], (f) => ({
+      moduleId: f.filepath || "",
+      errors: errorsOf(f),
+      children: { allSuites: () => suites(f) },
+    }));
+    write(errors, modules, "onFinished");
+  }
+}
+`)
 }
 
 func (p *Plugin) Run(job *plugin.Job, ctx plugin.Context) (plugin.RawOutput, error) {
@@ -358,12 +464,22 @@ func (p *Plugin) Run(job *plugin.Job, ctx plugin.Context) (plugin.RawOutput, err
 		return plugin.RawOutput{}, errors.New("vitest binary not found")
 	}
 	out := filepath.Join(ctx.ArtifactDir, "vitest.json")
+	unhandledPath := filepath.Join(ctx.ArtifactDir, "vitest-unhandled.json")
 	ver, err := plugin.Exec(bin, []string{"--version"}, plugin.ExecOptions{Dir: projectDir, Timeout: time.Minute})
 	if err != nil {
 		return plugin.RawOutput{}, err
 	}
+	reporterDir, err := os.MkdirTemp("", "prepare-dev-vitest-")
+	if err != nil {
+		return plugin.RawOutput{}, err
+	}
+	defer os.RemoveAll(reporterDir)
+	reporter := filepath.Join(reporterDir, "unhandled-errors.mjs")
+	if err := os.WriteFile(reporter, unhandledReporter(unhandledPath), 0o644); err != nil {
+		return plugin.RawOutput{}, err
+	}
 	ctx.OnProgress("vitest run " + strings.Join(job.Targets, " "))
-	args := []string{"run", "--reporter=json", "--outputFile=" + out}
+	args := []string{"run", "--reporter=json", "--outputFile=" + out, "--reporter=" + reporter}
 	for _, t := range job.Targets {
 		rel, _ := filepath.Rel(projectDir, filepath.Join(job.Root, t))
 		args = append(args, rel)
@@ -383,7 +499,25 @@ func (p *Plugin) Run(job *plugin.Job, ctx plugin.Context) (plugin.RawOutput, err
 			rw.report = &rep
 		}
 	}
-	return plugin.RawOutput{Data: rw, Artifacts: []core.Artifact{{Kind: "report", Path: out}, {Kind: "log", Path: logPath}}}, nil
+	artifacts := []core.Artifact{{Kind: "report", Path: out}, {Kind: "log", Path: logPath}}
+	if data, err := os.ReadFile(unhandledPath); err == nil {
+		var u reporterOutput
+		if json.Unmarshal(data, &u) == nil {
+			rw.unhandled, rw.unhandledKnown = u.Errors, true
+			rw.isolateOff = u.Isolate != nil && !*u.Isolate
+			rw.hook = u.Hook
+			for _, f := range u.Files {
+				if len(f.Errors) > 0 {
+					if rw.fileErrors == nil {
+						rw.fileErrors = map[string][]string{}
+					}
+					rw.fileErrors[f.File] = f.Errors
+				}
+			}
+			artifacts = append(artifacts, core.Artifact{Kind: "report", Path: unhandledPath})
+		}
+	}
+	return plugin.RawOutput{Data: rw, Artifacts: artifacts}, nil
 }
 
 type assertion struct {
@@ -403,26 +537,108 @@ func (p *Plugin) Parse(out plugin.RawOutput, job *plugin.Job, inputs plugin.Inpu
 	}
 	var all []assertion
 	covered := []string{}
+	relOf := func(name string) string {
+		rel, err := filepath.Rel(job.Root, name)
+		if err != nil {
+			rel = name
+		}
+		return filepath.ToSlash(rel)
+	}
+	// Failures outside tests, by file: a file whose own run failed (an afterAll or other
+	// hook that throws, a file that cannot be loaded; its message says why, also when a
+	// test in it failed too) and unhandled errors (an exception thrown after a test, a
+	// rejected promise; Vitest exits with 1 and still reports success for them).
+	fileFailure := map[string]string{} // file -> why
+	hasTests := map[string]bool{}
+	anyFailure := false
 	if r.report != nil {
 		for _, f := range r.report.TestResults {
+			failedTest := false
 			for _, a := range f.AssertionResults {
 				all = append(all, assertion{file: f.Name, fullName: a.FullName, status: a.Status, failures: a.FailureMessages})
-				rel, err := filepath.Rel(job.Root, f.Name)
-				if err != nil {
-					rel = f.Name
+				covered = append(covered, relOf(f.Name)+"::"+a.FullName)
+				if a.Status == "failed" {
+					failedTest, anyFailure = true, true
 				}
-				covered = append(covered, filepath.ToSlash(rel)+"::"+a.FullName)
+			}
+			hasTests[f.Name] = len(f.AssertionResults) > 0
+			if f.Status == "failed" {
+				anyFailure = true
+				if msg := firstLine(f.Message); msg != "" || !failedTest {
+					fileFailure[f.Name] = msg
+				}
 			}
 		}
+	}
+	// errors of a file and its suites from the reporter: an afterAll inside a describe is
+	// in no message of the JSON report
+	reporterFiles := make([]string, 0, len(r.fileErrors))
+	for f := range r.fileErrors {
+		reporterFiles = append(reporterFiles, f)
+	}
+	sort.Strings(reporterFiles)
+	for _, f := range reporterFiles {
+		anyFailure = true
+		why := fileFailure[f]
+		for _, e := range r.fileErrors[f] {
+			if m := firstLine(e); m != "" && !strings.Contains(why, m) {
+				if why != "" {
+					why += "; "
+				}
+				why += m
+			}
+		}
+		fileFailure[f] = why
+	}
+	var unattributed []string // unhandled errors whose test file is not known
+	for _, e := range r.unhandled {
+		anyFailure = true
+		why := "unhandled error"
+		if m := firstLine(e.Message); m != "" {
+			why += ": " + m
+		}
+		if e.File != "" && r.isolateOff {
+			// without isolation the test files share one environment, so the error may come
+			// from a test of another file
+			why += " (reported in " + relOf(e.File) + ", but test files are not isolated)"
+		}
+		if e.File == "" || r.isolateOff {
+			unattributed = append(unattributed, why)
+			continue
+		}
+		if prev := fileFailure[e.File]; prev != "" {
+			why = prev + "; " + why
+		}
+		fileFailure[e.File] = why
+	}
+	failedFiles := make([]string, 0, len(fileFailure))
+	for f := range fileFailure {
+		failedFiles = append(failedFiles, f)
+	}
+	sort.Strings(failedFiles)
+	unexplainedExit := r.code != 0 && !r.timedOut && r.report != nil && !anyFailure
+	if unexplainedExit || len(unattributed) > 0 {
+		overall = plugin.Worst(overall, "failed")
 	}
 	var notes []string
 	claims := []core.RunClaim{}
 	for _, cl := range job.Claims {
 		fileSuffix, name, _ := strings.Cut(cl.NativeRef, "::")
 		var matched []assertion
+		inMatched := map[string]bool{}
 		for _, a := range all {
 			if (fileSuffix == "" || strings.HasSuffix(filepath.ToSlash(a.file), fileSuffix)) && (name == "" || strings.Contains(a.fullName, name)) {
 				matched = append(matched, a)
+				inMatched[a.file] = true
+			}
+		}
+		// the failures outside tests that count for this claim: those of a file with one of
+		// its tests, and those of a file without test results (which tests it had is not
+		// known) whose path the ref's file part matches (an empty part matches every file)
+		var outside []string
+		for _, f := range failedFiles {
+			if inMatched[f] || (!hasTests[f] && (fileSuffix == "" || strings.HasSuffix(filepath.ToSlash(f), fileSuffix))) {
+				outside = append(outside, f)
 			}
 		}
 		result := "unknown"
@@ -432,7 +648,9 @@ func (p *Plugin) Parse(out plugin.RawOutput, job *plugin.Job, inputs plugin.Inpu
 		case r.report == nil:
 			result = "tool_error"
 		case len(matched) == 0:
-			notes = append(notes, cl.NativeRef+": no matching test")
+			if len(outside) == 0 {
+				notes = append(notes, cl.NativeRef+": no matching test")
+			}
 		default:
 			passed, failed := 0, []assertion{}
 			for _, m := range matched {
@@ -450,16 +668,26 @@ func (p *Plugin) Parse(out plugin.RawOutput, job *plugin.Job, inputs plugin.Inpu
 				result = "failed"
 				first := ""
 				if len(failed[0].failures) > 0 {
-					first = strings.SplitN(failed[0].failures[0], "\n", 2)[0]
-					if rs := []rune(first); len(rs) > 160 {
-						first = string(rs[:160])
-					}
+					first = clip(firstLine(failed[0].failures[0]))
 				}
 				note := fmt.Sprintf("%s: %d failed", cl.NativeRef, len(failed))
 				if first != "" {
 					note += " (" + first + ")"
 				}
 				notes = append(notes, note)
+			}
+		}
+		if !r.timedOut && r.report != nil {
+			for _, f := range outside {
+				result = "failed"
+				note := fmt.Sprintf("%s: %s failed outside its tests", cl.NativeRef, relOf(f))
+				if why := fileFailure[f]; why != "" {
+					note += ": " + clip(why)
+				}
+				notes = append(notes, note)
+			}
+			if result == "verified" && (unexplainedExit || len(unattributed) > 0) {
+				result = "failed"
 			}
 		}
 		overall = plugin.Worst(overall, result)
@@ -483,6 +711,18 @@ func (p *Plugin) Parse(out plugin.RawOutput, job *plugin.Job, inputs plugin.Inpu
 	if r.report != nil {
 		summary = fmt.Sprintf("%d/%d tests passed (vitest %s)", r.report.NumPassedTests, r.report.NumTotalTests, r.version)
 	}
+	if len(unattributed) > 0 {
+		notes = append(notes, clip(strings.Join(unattributed, "; "))+": where it happened is not known, so no claim is verified")
+	}
+	if unexplainedExit {
+		notes = append(notes, fmt.Sprintf("vitest exited with status %d though no test or file failed and no unhandled error was reported, so no claim is verified (see the log)", r.code))
+	}
+	if r.code != 0 && r.report != nil && !r.unhandledKnown {
+		notes = append(notes, "the reporter for unhandled errors wrote nothing, so they were not read")
+	}
+	if r.hook == "onFinished" {
+		notes = append(notes, "the errors of files and suites were read through onFinished (Vitest before 3), which was not checked with a real Vitest")
+	}
 	if len(notes) > 0 {
 		summary += ". " + strings.Join(notes, ". ")
 	}
@@ -491,7 +731,7 @@ func (p *Plugin) Parse(out plugin.RawOutput, job *plugin.Job, inputs plugin.Inpu
 		version = "unknown"
 	}
 	return &core.RunRecord{
-		Tool:        core.RunTool{Name: "vitest", Version: version, Extra: core.OM("path", plugin.HomeRelative(r.bin))},
+		Tool:        core.RunTool{Name: "vitest", Version: version, Extra: core.OM("path", plugin.HomeRelative(r.bin), "exit_code", int64(r.code))},
 		Method:      "test",
 		Claims:      claims,
 		Targets:     inputs.Targets,
@@ -502,4 +742,15 @@ func (p *Plugin) Parse(out plugin.RawOutput, job *plugin.Job, inputs plugin.Inpu
 		Artifacts:   out.Artifacts,
 		Summary:     summary,
 	}, nil
+}
+
+func firstLine(s string) string {
+	return strings.TrimSpace(strings.SplitN(strings.TrimSpace(s), "\n", 2)[0])
+}
+
+func clip(s string) string {
+	if rs := []rune(s); len(rs) > 160 {
+		return string(rs[:160])
+	}
+	return s
 }

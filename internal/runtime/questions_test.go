@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -252,6 +253,174 @@ func TestQuestions(t *testing.T) {
 				t.Fatalf("%s: retry %+v", stage, r)
 			}
 		}
+	})
+
+	run(t, "[C3] a deleted decision file is written again from the journal with the next rev, and the next start still writes", func(t *testing.T) {
+		// committed: the start's clean-up of past transactions writes the file again; in
+		// flight (crash after stage b): the roll forward does. The next start must not read
+		// either as a merge of two working copies (one record created twice).
+		for _, stage := range []string{"committed", "decision"} {
+			root := t.TempDir()
+			rt := openRT(t, root)
+			q := ask(t, rt, seed(t, rt))
+			a := answerChoice(t, rt, q.ID, "hold")
+			if stage == "committed" {
+				ok(rt.Questions.Apply(q.ID, a.AnswerID, testDecision, nil, nil))
+			} else if _, err := rt.Questions.Apply(q.ID, a.AnswerID, testDecision, nil, crashAfter(stage)); !isCrash(err) {
+				t.Fatalf("%s: expected a crash, got %v", stage, err)
+			}
+			intent := rt.Store.Intents()[0]
+			noErr(t, os.Remove(filepath.Join(root, "prepare", "decisions", intent.DecisionID+".md")))
+			rt2 := openRT(t, root)
+			d := readRec(t, rt2.Store, intent.DecisionID)
+			if tx, _ := d.Frontmatter.Str("txid"); d.Rev != 2 || tx != intent.TxID {
+				t.Fatalf("%s: the decision written again is rev %d (txid %s), want rev 2 of %s", stage, d.Rev, tx, intent.TxID)
+			}
+			rt3 := openRT(t, root)
+			if len(rt3.Store.Blocked) != 0 {
+				t.Fatalf("%s: the next start reads the recovery as a merge: %v", stage, rt3.Store.Blocked)
+			}
+			if decisions := ok(rt3.Store.ListRecords("decision")); len(decisions) != 1 || len(ok(rt3.Questions.Pending())) != 0 || !rt3.Store.IsCommitted(intent.TxID) {
+				t.Fatalf("%s: decisions %v, committed %v", stage, ids(decisions), rt3.Store.IsCommitted(intent.TxID))
+			}
+			ok(rt3.Store.CreateRecord("requirement", core.OM("title", "復元の後も書ける"), ""))
+		}
+	})
+
+	run(t, "[C3] a transaction whose question file is gone or lacks its answer is shown, and nothing is written until the file is back", func(t *testing.T) {
+		// committed: git clean removed a new question and its decision; aborting: a crash
+		// after stage b and the subject edited while down; older: a version of the file
+		// from before the answer brought back. The journal does not hold the answers.
+		for _, c := range []string{"committed", "aborting", "older", "unreadable", "forbidden"} {
+			root := t.TempDir()
+			rt := openRT(t, root)
+			req := seed(t, rt)
+			q := ask(t, rt, req)
+			qfile := filepath.Join(root, "prepare", "questions", q.ID+".json")
+			older, err := os.ReadFile(qfile)
+			noErr(t, err)
+			a := answerChoice(t, rt, q.ID, "hold")
+			if c == "aborting" {
+				if _, err := rt.Questions.Apply(q.ID, a.AnswerID, testDecision, nil, crashAfter("decision")); !isCrash(err) {
+					t.Fatalf("%s: expected a crash, got %v", c, err)
+				}
+				rewriteBody(t, root, filepath.Join("prepare", "requirements", req+".md"), "停止中に編集\n")
+			} else {
+				ok(rt.Questions.Apply(q.ID, a.AnswerID, testDecision, nil, nil))
+			}
+			dec := filepath.Join(root, "prepare", "decisions", rt.Store.Intents()[0].DecisionID+".md")
+			saved, err := os.ReadFile(qfile)
+			noErr(t, err)
+			switch c {
+			case "committed":
+				noErr(t, os.Remove(qfile))
+				noErr(t, os.Remove(dec))
+			case "aborting":
+				noErr(t, os.Remove(qfile))
+			case "older":
+				noErr(t, os.WriteFile(qfile, older, 0o644))
+			case "unreadable":
+				noErr(t, os.WriteFile(qfile, []byte("{ not json"), 0o644))
+			case "forbidden":
+				noErr(t, os.Chmod(qfile, 0))
+				if _, err := os.ReadFile(qfile); err == nil {
+					noErr(t, os.Chmod(qfile, 0o644))
+					continue // running as root: the file stays readable
+				}
+			}
+			journal := filepath.Join(root, "prepare", "events.jsonl")
+			before, _ := os.ReadFile(journal)
+			decBefore, decErr := os.ReadFile(dec)
+			rt2 := openRT(t, root)
+			want := map[string]string{"committed": "is missing", "aborting": "is missing", "older": "has no answer " + a.AnswerID, "unreadable": "cannot be read", "forbidden": "cannot be read"}[c]
+			if len(rt2.Store.Unrecoverable) != 1 || rt2.Store.Unrecoverable[0].Path != filepath.Join("prepare", "questions", q.ID+".json") || !strings.Contains(rt2.Store.Unrecoverable[0].Message, want) {
+				t.Fatalf("%s: unrecoverable %+v", c, rt2.Store.Unrecoverable)
+			}
+			shown := false
+			for _, pr := range ok(rt2.Status.View()).Problems {
+				shown = shown || strings.Contains(pr.Message, want)
+			}
+			if !shown {
+				t.Fatalf("%s: status does not show the transaction", c)
+			}
+			_, err = rt2.Store.CreateRecord("requirement", core.OM("title", "書かない"), "")
+			mustErr(t, err, "cannot be recovered")
+			if after, _ := os.ReadFile(journal); string(after) != string(before) {
+				t.Fatalf("%s: the journal changed", c)
+			}
+			if decAfter, err := os.ReadFile(dec); (err == nil) != (decErr == nil) || string(decAfter) != string(decBefore) {
+				t.Fatalf("%s: the decision file changed", c)
+			}
+			// with the file back, recovery runs
+			_ = os.Chmod(qfile, 0o644)
+			noErr(t, os.WriteFile(qfile, saved, 0o644))
+			rt3 := openRT(t, root)
+			if len(rt3.Store.Unrecoverable) != 0 || len(rt3.Store.Blocked) != 0 || len(rt3.Store.InflightIntents()) != 0 {
+				t.Fatalf("%s: after the file is back: unrecoverable %v, blocked %v", c, rt3.Store.Unrecoverable, rt3.Store.Blocked)
+			}
+		}
+	})
+
+	run(t, "[C3] the question file of an aborted, cleaned-up transaction that cannot be read is shown, and status does not fail", func(t *testing.T) {
+		root := t.TempDir()
+		rt := openRT(t, root)
+		req := seed(t, rt)
+		q := ask(t, rt, req)
+		a := answerChoice(t, rt, q.ID, "hold")
+		if _, err := rt.Questions.Apply(q.ID, a.AnswerID, testDecision, nil, crashAfter("decision")); !isCrash(err) {
+			t.Fatalf("expected a crash, got %v", err)
+		}
+		rewriteBody(t, root, filepath.Join("prepare", "requirements", req+".md"), "停止中に編集\n")
+		rt2 := openRT(t, root) // aborts and cleans up
+		if len(rt2.Store.AbortedTxids()) != 1 || ok(rt2.Questions.RecoveryPending()) {
+			t.Fatal("the transaction should be aborted and cleaned up")
+		}
+		qfile := filepath.Join(root, "prepare", "questions", q.ID+".json")
+		noErr(t, os.Chmod(qfile, 0))
+		t.Cleanup(func() { _ = os.Chmod(qfile, 0o644) })
+		if _, err := os.ReadFile(qfile); err == nil {
+			t.Skip("the file is still readable (running as root?)")
+		}
+		rt3 := openRT(t, root)
+		if len(rt3.Store.Unrecoverable) != 1 || !strings.Contains(rt3.Store.Unrecoverable[0].Message, "cannot be read") {
+			t.Fatalf("unrecoverable %+v", rt3.Store.Unrecoverable)
+		}
+		view := ok(rt3.Status.View())
+		if !view.RecoveryPending {
+			t.Fatal("an unreadable clean-up should count as pending recovery")
+		}
+	})
+
+	run(t, "[C3] a decision of the same number made with record create in another working copy is reported, and nothing is written", func(t *testing.T) {
+		base := t.TempDir()
+		rt := openRT(t, base)
+		q := ask(t, rt, seed(t, rt))
+		a := answerChoice(t, rt, q.ID, "hold")
+		rootA, rootB := t.TempDir(), t.TempDir()
+		noErr(t, os.CopyFS(rootA, os.DirFS(base)))
+		noErr(t, os.CopyFS(rootB, os.DirFS(base)))
+		baseJournal, err := os.ReadFile(filepath.Join(base, "prepare", "events.jsonl"))
+		noErr(t, err)
+		// A applies the answer as DEC-0001; B makes DEC-0001 with record create
+		applied := ok(openRT(t, rootA).Questions.Apply(q.ID, a.AnswerID, testDecision, nil, nil))
+		made := ok(openRT(t, rootB).Store.CreateRecord("decision", core.OM("title", "B が手で書いた判断", "status", "accepted"), "B の理由\n"))
+		if applied.DecisionID != made.ID {
+			t.Fatalf("the two working copies numbered %s and %s", applied.DecisionID, made.ID)
+		}
+		// the merge keeps both sides' journal lines, A's question file and B's decision file
+		ja, _ := os.ReadFile(filepath.Join(rootA, "prepare", "events.jsonl"))
+		jb, _ := os.ReadFile(filepath.Join(rootB, "prepare", "events.jsonl"))
+		noErr(t, os.WriteFile(filepath.Join(rootA, "prepare", "events.jsonl"), append(append([]byte{}, ja...), jb[len(baseJournal):]...), 0o644))
+		dec := filepath.Join("prepare", "decisions", made.ID+".md")
+		data, err := os.ReadFile(filepath.Join(rootB, dec))
+		noErr(t, err)
+		noErr(t, os.WriteFile(filepath.Join(rootA, dec), data, 0o644))
+		merged := openRT(t, rootA)
+		if !strings.Contains(strings.Join(merged.Store.Blocked, "\n"), "decision "+made.ID+" is not the one its apply transaction wrote (the file has no transaction)") {
+			t.Fatalf("blocked: %v", merged.Store.Blocked)
+		}
+		_, err = merged.Store.CreateRecord("requirement", core.OM("title", "書かない"), "")
+		mustErr(t, err, "conflict")
 	})
 
 	run(t, "[C2][C3] M1-9: crash after stage c, subject edited while down, restart: abort, nothing public, answer pending and stale", func(t *testing.T) {

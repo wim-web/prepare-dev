@@ -39,7 +39,7 @@ type JobState struct {
 
 // Mismatch is a dependency of a run that changed since it ran.
 type Mismatch struct {
-	Kind     string  `json:"kind"` // claim_spec | claim_requirement | target | input | listing
+	Kind     string  `json:"kind"` // claim_spec | claim_requirement | target | input | listing | plugin
 	Ref      string  `json:"ref"`
 	Expected string  `json:"expected"`
 	Current  *string `json:"current"`
@@ -497,15 +497,16 @@ func (r *Runs) Applicability(run *core.RunRecord) Applicability {
 	}
 	// a file added to or removed from a recorded directory
 	for _, l := range run.Inputs.Listings {
-		cur := plugin.ListingDigest(filepath.Join(r.store.Root, filepath.FromSlash(l.Path)), l.Recursive)
-		if cur != l.SHA256 {
+		if cur := plugin.CurrentDigest(r.store.Root, l); cur != l.SHA256 {
 			c := short(cur)
-			ref := l.Path + "/"
-			if l.Recursive {
-				ref += "**"
-			}
-			mismatches = append(mismatches, Mismatch{Kind: "listing", Ref: ref, Expected: short(l.SHA256), Current: &c})
+			mismatches = append(mismatches, Mismatch{Kind: "listing", Ref: plugin.ListingRef(l), Expected: short(l.SHA256), Current: &c})
 		}
+	}
+	// another version of the plugin followed other rules (which files it records, how it
+	// reads the tool's output), so its runs are not evidence for now
+	if p, ok := r.plugins[run.Plugin.Name]; ok && p.Version() != run.Plugin.Version {
+		c := p.Version()
+		mismatches = append(mismatches, Mismatch{Kind: "plugin", Ref: run.Plugin.Name, Expected: run.Plugin.Version, Current: &c})
 	}
 	return Applicability{Applicable: len(mismatches) == 0, Mismatches: mismatches}
 }

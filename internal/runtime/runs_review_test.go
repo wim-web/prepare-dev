@@ -183,6 +183,45 @@ func TestRuns(t *testing.T) {
 		if !rt.Runs.Applicability(run4).Applicable {
 			t.Fatal("removing the added file should restore applicability")
 		}
+		// a run another version of its plugin made followed that version's rules
+		rtp := openRT(t, root, Options{Plugins: []Plugin{&pausedPlugin{}}})
+		run5 := fakeRun(t, rtp, spec.ID, req.ID, input)
+		run5.Plugin = core.NameVersion{Name: "paused", Version: "0"}
+		m = rtp.Runs.Applicability(run5).Mismatches
+		if len(m) != 1 || m[0].Kind != "plugin" || m[0].Ref != "paused" || m[0].Expected != "0" || m[0].Current == nil || *m[0].Current != "1" {
+			t.Fatalf("a run of another plugin version: %+v", m)
+		}
+		run5.Plugin.Version = "1"
+		if !rtp.Runs.Applicability(run5).Applicable {
+			t.Fatal("a run of the current plugin version should apply")
+		}
+	})
+
+	run(t, "[V1] while nothing is written (a transaction cannot be recovered), an edited requirement still makes a run stop applying", func(t *testing.T) {
+		root := t.TempDir()
+		rt := openRT(t, root)
+		req := ok(rt.Store.CreateRecord("requirement", core.OM("title", "R"), "r\n"))
+		spec := ok(rt.Store.CreateRecord("spec", core.OM("title", "S", "links", core.OM("specifies", []any{req.ID}),
+			"claims", []any{core.OM("id", "C1", "statement", "s", "requirement", req.ID, "native", []any{core.OM("plugin", "fake", "ref", "x")})}), "s\n"))
+		input := filepath.Join("src", "impl.txt")
+		noErr(t, os.MkdirAll(filepath.Join(root, "src"), 0o755))
+		noErr(t, os.WriteFile(filepath.Join(root, input), []byte("v1"), 0o644))
+		run := fakeRun(t, rt, spec.ID, req.ID, input)
+		q := ask(t, rt, req.ID)
+		a := answerChoice(t, rt, q.ID, "hold")
+		ok(rt.Questions.Apply(q.ID, a.AnswerID, testDecision, nil, nil))
+		// the question file of the committed transaction is lost, and the requirement is
+		// edited while the daemon is down
+		noErr(t, os.Remove(filepath.Join(root, "prepare", "questions", q.ID+".json")))
+		rewriteBody(t, root, filepath.Join("prepare", "requirements", req.ID+".md"), "停止中に編集\n")
+		rt2 := openRT(t, root)
+		if len(rt2.Store.Unrecoverable) == 0 {
+			t.Fatal("the lost question file should stop writing")
+		}
+		app := rt2.Runs.Applicability(run)
+		if app.Applicable || !contains(kinds(app.Mismatches), "claim_requirement") {
+			t.Fatalf("the run still applies to the edited requirement: %+v", app)
+		}
 	})
 }
 
@@ -366,6 +405,56 @@ func TestReviews(t *testing.T) {
 // A run whose daemon stopped before the record was written shows in status; two record
 // files claiming one id are reported and neither is rewritten.
 func TestOperationalProblems(t *testing.T) {
+	run(t, "a question file that cannot be read is a problem; status, the question list and trace go on with the others", func(t *testing.T) {
+		root := t.TempDir()
+		rt := openRT(t, root)
+		req := seed(t, rt)
+		bad := ask(t, rt, req)
+		good := ask(t, rt, req)
+		noErr(t, os.WriteFile(filepath.Join(root, "prepare", "questions", bad.ID+".json"), []byte("{ not json"), 0o644))
+		rt2 := openRT(t, root)
+		v := ok(rt2.Status.View())
+		shown := false
+		for _, p := range v.Problems {
+			shown = shown || p.Path == filepath.Join("prepare", "questions", bad.ID+".json")
+		}
+		if !shown {
+			t.Fatalf("problems %+v", v.Problems)
+		}
+		list := ok(rt2.Questions.List())
+		if len(list) != 1 || list[0].ID != good.ID {
+			t.Fatalf("questions %v", list)
+		}
+		ok(rt2.Trace.For(req))
+		// no transaction needs the broken file, so writing goes on
+		ok(rt2.Store.CreateRecord("requirement", core.OM("title", "書ける"), ""))
+	})
+
+	run(t, "a question file that cannot be read for its permissions is a problem too; status and the question list go on with the others", func(t *testing.T) {
+		root := t.TempDir()
+		rt := openRT(t, root)
+		req := seed(t, rt)
+		bad := ask(t, rt, req)
+		good := ask(t, rt, req)
+		path := filepath.Join(root, "prepare", "questions", bad.ID+".json")
+		noErr(t, os.Chmod(path, 0))
+		t.Cleanup(func() { _ = os.Chmod(path, 0o644) })
+		if _, err := os.ReadFile(path); err == nil {
+			t.Skip("the file is still readable (running as root?)")
+		}
+		rt2 := openRT(t, root)
+		shown := false
+		for _, p := range ok(rt2.Status.View()).Problems {
+			shown = shown || p.Path == filepath.Join("prepare", "questions", bad.ID+".json")
+		}
+		if !shown {
+			t.Fatal("status does not show the unreadable question file")
+		}
+		if list := ok(rt2.Questions.List()); len(list) != 1 || list[0].ID != good.ID {
+			t.Fatalf("questions %v", list)
+		}
+	})
+
 	run(t, "a reserved run without a record is reported as incomplete", func(t *testing.T) {
 		root := t.TempDir()
 		rt := openRT(t, root)

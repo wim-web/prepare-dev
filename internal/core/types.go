@@ -216,10 +216,15 @@ type RunInputs struct {
 	Listings []InputListing `json:"listings,omitempty"`
 }
 
-// InputListing is the digest of the file names under a directory (relative to root).
+// InputListing is the digest of the names under a directory (relative to root). Mode
+// says which names count (plugin.ListFiles, the default, plugin.ListAll or
+// plugin.ListGoEmbed); Match, on a non-recursive listing, keeps only the names that
+// match it (filepath.Match). Runs written before modes existed have neither.
 type InputListing struct {
 	Path      string `json:"path"`
 	Recursive bool   `json:"recursive"`
+	Mode      string `json:"mode,omitempty"`
+	Match     string `json:"match,omitempty"`
 	SHA256    string `json:"sha256"`
 }
 
