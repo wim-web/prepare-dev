@@ -8,7 +8,7 @@
 
 | 場所 | 内容 |
 | - | - |
-| `cmd/prepare-dev`、`internal/` | 本体（デーモン、CLI、HTTP API、検証プラグイン） |
+| `cmd/ppdev`、`internal/` | 本体（デーモン、CLI、HTTP API、検証プラグイン） |
 | `ui/` | 判断画面（React）。ビルド結果を Git に入れて埋め込む（[ui/README.md](ui/README.md)） |
 | `skills/` | エージェント向け skills の正本。検証プラグインごとの主張の書き方は prepare-verify の `references/` にある |
 | `model/` | 回答の適用と回復の Lean 4 モデルと証明、適合テストの操作列 |
@@ -22,11 +22,11 @@ Go 1.27 以上。判断画面を直すときだけ Node.js 26 以上と pnpm を
 
 ```bash
 go test ./...                                   # 単体・適合・e2e のテスト
-go run ./cmd/prepare-dev status --root <対象>    # checkout から動かす
+go run ./cmd/ppdev status --root <対象>    # checkout から動かす
 (cd model && bin/test)                          # Lean の証明と、操作列がモデルと一致するか
 (cd ui && pnpm install && pnpm test && pnpm build)
 go run ./scripts/release -version <版>           # dist/ に tar.gz
-PREPARE_DEV_E2E_BINARY=<展開した prepare-dev> go test ./internal/e2e   # 配布物そのものを検査
+PREPARE_DEV_E2E_BINARY=<展開した ppdev> go test ./internal/e2e   # 配布物そのものを検査
 ```
 
-Lean のモデルを変えたら `model/bin/test` で操作列を照合し直す（照合したモデルの digest を Go のテストが確かめる）。このリポジトリの証拠は、`.prepare-dev/config.json` の設定を使って `prepare-dev verify run` で取る。
+Lean のモデルを変えたら `model/bin/test` で操作列を照合し直す（照合したモデルの digest を Go のテストが確かめる）。このリポジトリの証拠は、`.prepare-dev/config.json` の設定を使って `ppdev verify run` で取る。

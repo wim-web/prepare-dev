@@ -1,6 +1,6 @@
 # lean4 プラグイン: 主張の書き方
 
-プラグインの版: lean4 0.3.0。この版の規則を書く。`prepare-dev version --json` の `plugins.lean4` がこれと違えば、この写しは実行ファイルより古いので、`prepare-dev init` で skills を更新する。
+プラグインの版: lean4 0.3.0。この版の規則を書く。`ppdev version --json` の `plugins.lean4` がこれと違えば、この写しは実行ファイルより古いので、`ppdev init` で skills を更新する。
 
 対象は Lake プロジェクト（`.prepare-dev/config.json` の `plugins.lean4.project_dir`）。証拠の種類は `proof`。
 

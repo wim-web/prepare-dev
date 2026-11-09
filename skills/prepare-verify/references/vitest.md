@@ -1,6 +1,6 @@
 # vitest プラグイン: 主張の書き方
 
-プラグインの版: vitest 0.4.0。この版の規則を書く。`prepare-dev version --json` の `plugins.vitest` がこれと違えば、この写しは実行ファイルより古いので、`prepare-dev init` で skills を更新する。
+プラグインの版: vitest 0.4.0。この版の規則を書く。`ppdev version --json` の `plugins.vitest` がこれと違えば、この写しは実行ファイルより古いので、`ppdev init` で skills を更新する。
 
 対象は vitest を使う TypeScript / JavaScript プロジェクト。証拠の種類は `test`。結果は実行したテストケースの範囲でのみ成り立つ（`scope.bounded = true`）。
 

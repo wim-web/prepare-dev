@@ -1,4 +1,4 @@
-// Package cli is the prepare-dev command line. Agents run it from the skills; the
+// Package cli is the ppdev command line. Agents run it from the skills; the
 // commands, flags and output formats are part of that contract.
 package cli
 
@@ -177,30 +177,30 @@ func Main(argv []string, stdout, stderr io.Writer) int {
 	return 1
 }
 
-const usage = `prepare-dev — 意図から判断・仕様・検証へ
+const usage = `ppdev — 意図から判断・仕様・検証へ
 
-prepare-dev init [--root dir] [--no-skills] [--skills-dir dir] [--replace-skills]
-prepare-dev status [--json] [--root dir]
-prepare-dev ui [Q-ID] [--no-open] [--root dir]
-prepare-dev record create --kind requirement|spec|design|discovery|review|record|proposal --title text --body-file file [--fm-file json]
-prepare-dev record get ID
-prepare-dev record put ID --expected-rev N --expected-sha256 HASH [--body-file file] [--fm-file json]
-prepare-dev record list [--kind kind]
-prepare-dev q create --subject REQ-ID --prompt-file question.md [--options-file options.json]
+ppdev init [--root dir] [--no-skills] [--skills-dir dir] [--replace-skills]
+ppdev status [--json] [--root dir]
+ppdev ui [Q-ID] [--no-open] [--root dir]
+ppdev record create --kind requirement|spec|design|discovery|review|record|proposal --title text --body-file file [--fm-file json]
+ppdev record get ID
+ppdev record put ID --expected-rev N --expected-sha256 HASH [--body-file file] [--fm-file json]
+ppdev record list [--kind kind]
+ppdev q create --subject REQ-ID --prompt-file question.md [--options-file options.json]
   --kind single_choice|multi_choice|free_text|review (default: single_choice) [--no-free-text]
-prepare-dev q apply Q-ID ANSWER-ID --title text --body-file file [--chosen key] [--alternative text]
-prepare-dev q list|show|wait|pending|ack|apply|close|cancel ...
-prepare-dev verify run --plugin gotest|vitest|lean4 --claim SPEC-ID/CLAIM --target path [--config-json json] --wait [--json]
-prepare-dev verify wait|get RUN-ID [--json] | verify list [--json]
-prepare-dev trace ID [--json]
-prepare-dev serve [--detach] | stop
-prepare-dev bundle RECORD-ID... [--stdout]
-prepare-dev version [--json]
+ppdev q apply Q-ID ANSWER-ID --title text --body-file file [--chosen key] [--alternative text]
+ppdev q list|show|wait|pending|ack|apply|close|cancel ...
+ppdev verify run --plugin gotest|vitest|lean4 --claim SPEC-ID/CLAIM --target path [--config-json json] --wait [--json]
+ppdev verify wait|get RUN-ID [--json] | verify list [--json]
+ppdev trace ID [--json]
+ppdev serve [--detach] | stop
+ppdev bundle RECORD-ID... [--stdout]
+ppdev version [--json]
 
 全操作で --root dir を指定できます。省略時は PREPARE_DEV_ROOT または現在のディレクトリ。
 init はskillsをコピーします。prepare-devが入れて編集されていないskillは新しい版に置き換え、
 編集されたskillは残して差異を出力します（--replace-skills で .prepare-dev/skills-backup に退避して置き換え）。
-MCPの設定は作りません。回答は判断画面（prepare-dev ui）からだけ行います。
+MCPの設定は作りません。回答は判断画面（ppdev ui）からだけ行います。
 verify と trace は、入力ファイルの一覧を件数に、不一致と実行したテストの一覧を先頭の数件に縮めて出力します。
 すべてを見るには --json を付けます。
 検証器（lean・vitest・go など）は対象プロジェクトへ別途導入してください。`
@@ -276,7 +276,7 @@ func run(a *args, out io.Writer) error {
 		}
 		return printOut(out, "no daemon running")
 	}
-	return die("usage: prepare-dev serve|init|status|pending|q|record|verify|trace|bundle|ui|stop|version [--root dir]")
+	return die("usage: ppdev serve|init|status|pending|q|record|verify|trace|bundle|ui|stop|version [--root dir]")
 }
 
 func client(a *args) (*daemon.Client, error) {
@@ -347,7 +347,7 @@ func cmdServe(a *args, out io.Writer) error {
 	}
 	srv = server.New(rt, server.Options{Port: port, UIHTML: preparedev.UIHTML(), CrashAfter: crashAfter, Tool: &id, OnShutdown: stop})
 	rt.Store.OnDead = func(reason string) {
-		fmt.Fprintf(os.Stderr, "[prepare-dev] %s %s\n", core.NowISO(), reason)
+		fmt.Fprintf(os.Stderr, "[ppdev] %s %s\n", core.NowISO(), reason)
 		stop()
 	}
 	info, err := srv.Listen()
@@ -367,7 +367,7 @@ func cmdServe(a *args, out io.Writer) error {
 					err = rt.Store.CheckJournal()
 				}
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "[prepare-dev] %s %v\n", core.NowISO(), err)
+					fmt.Fprintf(os.Stderr, "[ppdev] %s %v\n", core.NowISO(), err)
 					stop()
 					return
 				}
@@ -403,7 +403,7 @@ func cmdInit(a *args, out io.Writer) error {
 	// the lease while a daemon runs would let a second one start
 	ignoreFile := filepath.Join(stateDir, ".gitignore")
 	if f, err := os.OpenFile(ignoreFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644); err == nil {
-		_, werr := f.WriteString("# files of the running prepare-dev daemon\ndaemon.json\ndaemon.log\nlease\nindex.json\ntmp/\nskills-backup/\n")
+		_, werr := f.WriteString("# files of the running ppdev daemon\ndaemon.json\ndaemon.log\nlease\nindex.json\ntmp/\nskills-backup/\n")
 		cerr := f.Close()
 		if werr != nil || cerr != nil {
 			return errors.Join(werr, cerr)
@@ -581,7 +581,7 @@ func cmdStatus(a *args, out io.Writer) error {
 		}
 	}
 	if len(notApp) > 0 || len(cur) > 0 {
-		lines = append(lines, "  the current result of each claim: prepare-dev trace <SPEC or REQ id> (current and missing)")
+		lines = append(lines, "  the current result of each claim: ppdev trace <SPEC or REQ id> (current and missing)")
 	}
 	if inc := asList(field(s, "runs_incomplete")); len(inc) > 0 {
 		var ids []string
@@ -597,13 +597,13 @@ func cmdStatus(a *args, out io.Writer) error {
 	}
 	if plan != nil {
 		if len(plan.Update) > 0 {
-			lines = append(lines, "skills older than this build: "+strings.Join(plan.Update, ", ")+"; run prepare-dev init to update them")
+			lines = append(lines, "skills older than this build: "+strings.Join(plan.Update, ", ")+"; run ppdev init to update them")
 		}
 		if len(plan.Copy) > 0 {
-			lines = append(lines, "skills of this build not installed: "+strings.Join(plan.Copy, ", ")+"; run prepare-dev init to copy them")
+			lines = append(lines, "skills of this build not installed: "+strings.Join(plan.Copy, ", ")+"; run ppdev init to copy them")
 		}
 		if len(plan.Leave) > 0 {
-			lines = append(lines, "skills init leaves as they are (edited, or not installed by init): "+strings.Join(plan.Leave, ", ")+"; prepare-dev init --replace-skills backs them up and replaces them")
+			lines = append(lines, "skills init leaves as they are (edited, or not installed by init): "+strings.Join(plan.Leave, ", ")+"; ppdev init --replace-skills backs them up and replaces them")
 		}
 		if len(plan.Manual) > 0 {
 			lines = append(lines, "skills init does not touch even with --replace-skills (a symlink, a file, or outside the root): "+strings.Join(plan.Manual, ", ")+"; fix them by hand")
@@ -666,7 +666,7 @@ func cmdQ(a *args, out io.Writer) error {
 	valid := map[string]bool{"create": true, "list": true, "show": true, "wait": true, "pending": true, "ack": true, "apply": true, "close": true, "cancel": true}
 	if sub == "answer" {
 		// answers come from the person in the decision UI, never from the agent's CLI
-		return die("questions are answered in the decision UI (prepare-dev ui %s)", id)
+		return die("questions are answered in the decision UI (ppdev ui %s)", id)
 	}
 	if !valid[sub] {
 		return die("usage: q create|list|show|wait|pending|ack|apply|close|cancel")

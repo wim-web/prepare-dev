@@ -6,10 +6,10 @@
 
 ```sh
 tar -xzf prepare-dev-<version>-<os>-<arch>.tar.gz
-install prepare-dev-<version>-<os>-<arch>/prepare-dev ~/.local/bin/   # PATH の通った場所へ
+install prepare-dev-<version>-<os>-<arch>/ppdev ~/.local/bin/   # PATH の通った場所へ
 cd your-project
-prepare-dev init    # skills を .agents/skills と .claude/skills にコピー
-prepare-dev ui      # 判断画面を開く
+ppdev init    # skills を .agents/skills と .claude/skills にコピー
+ppdev ui      # 判断画面を開く
 ```
 
 エージェントに `prepare-dev` skill を使うよう依頼すると、CLI で記録・質問・検証を扱います。質問を作ると URL が返るので、ブラウザで開いて回答します。新しい版で `init` を実行すると、編集していない skill は新しい版に置き換わり、編集した skill は残ります。
@@ -17,21 +17,21 @@ prepare-dev ui      # 判断画面を開く
 ## よく使うコマンド
 
 ```sh
-prepare-dev status
-prepare-dev record create --kind requirement --title "予約人数の上限" --body-file requirement.md
-prepare-dev q create --subject REQ-0001 --prompt-file question.md --options-file options.json
-prepare-dev q wait Q-0001
-prepare-dev q apply Q-0001 ANS-0001-1 --title "上限を決定" --body-file decision.md
-prepare-dev verify run --plugin gotest --claim SPEC-0001/C1 --target internal/app/app_test.go --wait
-prepare-dev trace REQ-0001
-prepare-dev stop
+ppdev status
+ppdev record create --kind requirement --title "予約人数の上限" --body-file requirement.md
+ppdev q create --subject REQ-0001 --prompt-file question.md --options-file options.json
+ppdev q wait Q-0001
+ppdev q apply Q-0001 ANS-0001-1 --title "上限を決定" --body-file decision.md
+ppdev verify run --plugin gotest --claim SPEC-0001/C1 --target internal/app/app_test.go --wait
+ppdev trace REQ-0001
+ppdev stop
 ```
 
-すべてのコマンドと引数は `prepare-dev help` にあります。記録を管理するデーモンは必要なときに起動し、`prepare-dev stop` まで動きます。
+すべてのコマンドと引数は `ppdev help` にあります。記録を管理するデーモンは必要なときに起動し、`ppdev stop` まで動きます。
 
 ## 検証
 
-Lean 4（`lean4`）、Vitest（`vitest`）、Go のテスト（`gotest`）の接続処理を同梱しています。検証器そのものは別に導入してください。仕様の書き方と設定は、init がコピーする prepare-verify の skill の `references/`（`lean4.md`、`vitest.md`、`gotest.md`）にあります。デーモンは起動した CLI の PATH で検証器を探すので、検証器を入れ替えたら `prepare-dev stop` で止めてから使ってください。
+Lean 4（`lean4`）、Vitest（`vitest`）、Go のテスト（`gotest`）の接続処理を同梱しています。検証器そのものは別に導入してください。仕様の書き方と設定は、init がコピーする prepare-verify の skill の `references/`（`lean4.md`、`vitest.md`、`gotest.md`）にあります。デーモンは起動した CLI の PATH で検証器を探すので、検証器を入れ替えたら `ppdev stop` で止めてから使ってください。
 
 ## ブランチと worktree（Branches and worktrees）
 
@@ -39,6 +39,6 @@ Lean 4（`lean4`）、Vitest（`vitest`）、Go のテスト（`gotest`）の接
 
 ## 更新と停止
 
-別の版の実行ファイルで動いているデーモンには接続せず、その版と pid を表示します。版を上げたら `prepare-dev stop` で止め、実行ファイルを入れ替えてから `prepare-dev init` を実行し直してください。skills と、検証プラグインごとの主張の書き方（prepare-verify の skill の `references/`）が新しい版になります。編集した skill は残し、`prepare-dev status` が示します。検証プラグインの版（`prepare-dev version --json` の `plugins`）が変わった版では、前の版で取った検証の結果は今の版に当てはまらなくなるので、実装を変えていなくても `prepare-dev verify run` をやり直してください（0.3.0 では三つとも変わります）。`.prepare-dev/config.json` の `plugins` に、入れた実行ファイルが持たないプラグインの名前があると、どの検証も始まらないので外してください。0.2.0 の skills は `prepare-dev guidance` を実行するよう書いていますが、0.3.0 にこのコマンドはありません。応答しないデーモンは、表示される pid のプロセスを止めてください。判断画面と API は 127.0.0.1 でだけ配信します。
+別の版の実行ファイルで動いているデーモンには接続せず、その版と pid を表示します。版を上げたら `ppdev stop` で止め、実行ファイルを入れ替えてから `ppdev init` を実行し直してください。skills と、検証プラグインごとの主張の書き方（prepare-verify の skill の `references/`）が新しい版になります。編集した skill は残し、`ppdev status` が示します。検証プラグインの版（`ppdev version --json` の `plugins`）が変わった版では、前の版で取った検証の結果は今の版に当てはまらなくなるので、実装を変えていなくても `ppdev verify run` をやり直してください（0.3.0 では三つとも変わります）。`.prepare-dev/config.json` の `plugins` に、入れた実行ファイルが持たないプラグインの名前があると、どの検証も始まらないので外してください。0.2.0 の skills は `prepare-dev guidance` を実行するよう書いていますが、0.3.0 にこのコマンドはありません。応答しないデーモンは、表示される pid のプロセスを止めてください。判断画面と API は 127.0.0.1 でだけ配信します。
 
 同梱ライブラリのライセンスは `THIRD_PARTY_NOTICES.txt`、EGM 由来資料のライセンスと出典は `skills/prepare-review/references/egm/` にあります。

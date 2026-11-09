@@ -374,7 +374,7 @@ func Ensure(root string, start bool, timeout time.Duration) (*Info, error) {
 		if info != nil {
 			if l := probe(info); l != nil {
 				if l.Tool == nil || l.Tool.Build != id.Build || l.Tool.Version != id.Version {
-					return nil, fmt.Errorf("the running daemon is another build (%s; pid %d) and this is %s; run prepare-dev stop --root %s, then retry", describe(l.Tool), info.PID, describe(&id), core.JSONString(root))
+					return nil, fmt.Errorf("the running daemon is another build (%s; pid %d) and this is %s; run ppdev stop --root %s, then retry", describe(l.Tool), info.PID, describe(&id), core.JSONString(root))
 				}
 				return info, nil
 			}
@@ -389,7 +389,7 @@ func Ensure(root string, start bool, timeout time.Duration) (*Info, error) {
 		}
 		if info == nil && !held {
 			if !start {
-				return nil, fmt.Errorf("no daemon running for %s (run: prepare-dev serve)", root)
+				return nil, fmt.Errorf("no daemon running for %s (run: ppdev serve)", root)
 			}
 			if exited == nil {
 				if st, err := os.Stat(logPath); err == nil {

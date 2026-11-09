@@ -1,4 +1,4 @@
-// Package e2e copies the prepare-dev binary to a temporary location and drives it like
+// Package e2e copies the ppdev binary to a temporary location and drives it like
 // an installed tool: init, records, questions, answers, decisions, trace, status, stop
 // and restart. It builds the binary from this checkout, or tests the one named by
 // PREPARE_DEV_E2E_BINARY (for example a binary taken from a release archive).
@@ -36,7 +36,7 @@ var (
 )
 
 func goBuild(out string, ldflags string) error {
-	build := exec.Command("go", "build", "-ldflags", ldflags, "-o", out, "./cmd/prepare-dev")
+	build := exec.Command("go", "build", "-ldflags", ldflags, "-o", out, "./cmd/ppdev")
 	build.Dir = filepath.Join("..", "..")
 	if data, err := build.CombinedOutput(); err != nil {
 		return fmt.Errorf("build failed: %v\n%s", err, data)
@@ -51,7 +51,7 @@ func TestMain(m *testing.M) {
 	}
 	binary = os.Getenv("PREPARE_DEV_E2E_BINARY")
 	if binary == "" {
-		binary = filepath.Join(dir, "prepare-dev")
+		binary = filepath.Join(dir, "ppdev")
 		if err := goBuild(binary, ""); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -59,7 +59,7 @@ func TestMain(m *testing.M) {
 	} else if binary, err = filepath.Abs(binary); err != nil {
 		panic(err)
 	}
-	other = filepath.Join(dir, "prepare-dev-other")
+	other = filepath.Join(dir, "ppdev-other")
 	if err := goBuild(other, "-X main.version=0.0.0-e2e-other"); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -140,7 +140,7 @@ func (p *project) ok(args ...string) string {
 	p.t.Helper()
 	out, errOut, code := p.run(args...)
 	if code != 0 {
-		p.t.Fatalf("prepare-dev %s: exit %d\n%s%s", strings.Join(args, " "), code, out, errOut)
+		p.t.Fatalf("ppdev %s: exit %d\n%s%s", strings.Join(args, " "), code, out, errOut)
 	}
 	return out
 }
@@ -149,7 +149,7 @@ func (p *project) json(args ...string) map[string]any {
 	p.t.Helper()
 	var v map[string]any
 	if err := json.Unmarshal([]byte(p.ok(args...)), &v); err != nil {
-		p.t.Fatalf("prepare-dev %s: not JSON: %v", strings.Join(args, " "), err)
+		p.t.Fatalf("ppdev %s: not JSON: %v", strings.Join(args, " "), err)
 	}
 	return v
 }
@@ -245,7 +245,7 @@ func relocated(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dst := filepath.Join(dir, "prepare-dev")
+	dst := filepath.Join(dir, "ppdev")
 	if err := os.WriteFile(dst, data, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -664,7 +664,7 @@ func testP3Daemon(t *testing.T) {
 	}
 	// another build is refused, with the running daemon's identity and how to stop it
 	foreign := &project{t: t, root: p.root, bin: other}
-	if _, errOut, code := foreign.run("status"); code == 0 || !strings.Contains(errOut, "another build") || !strings.Contains(errOut, "prepare-dev stop") || !strings.Contains(errOut, fmt.Sprintf("pid %d", before3)) {
+	if _, errOut, code := foreign.run("status"); code == 0 || !strings.Contains(errOut, "another build") || !strings.Contains(errOut, "ppdev stop") || !strings.Contains(errOut, fmt.Sprintf("pid %d", before3)) {
 		t.Fatalf("another build should be refused: %s", errOut)
 	}
 

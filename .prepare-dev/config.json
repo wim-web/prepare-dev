@@ -17,7 +17,7 @@
     },
     "gotest": {
       "input_packages": [
-        "./cmd/prepare-dev"
+        "./cmd/ppdev"
       ],
       "impl_files": [
         "model/**",

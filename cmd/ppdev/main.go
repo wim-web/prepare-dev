@@ -1,5 +1,5 @@
-// Command prepare-dev connects vague intent to requirements, decisions, design,
-// checkable specs and verification evidence. See "prepare-dev help".
+// Command ppdev connects vague intent to requirements, decisions, design,
+// checkable specs and verification evidence. See "ppdev help".
 package main
 
 import (

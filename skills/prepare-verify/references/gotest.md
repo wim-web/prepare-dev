@@ -1,6 +1,6 @@
 # gotest プラグイン: 主張の書き方
 
-プラグインの版: gotest 0.3.0。この版の規則を書く。`prepare-dev version --json` の `plugins.gotest` がこれと違えば、この写しは実行ファイルより古いので、`prepare-dev init` で skills を更新する。
+プラグインの版: gotest 0.3.0。この版の規則を書く。`ppdev version --json` の `plugins.gotest` がこれと違えば、この写しは実行ファイルより古いので、`ppdev init` で skills を更新する。
 
 対象は Go モジュール。証拠の種類は `test`。結果は実行したテストケースの範囲でのみ成り立つ（`scope.bounded = true`）。
 
@@ -33,7 +33,7 @@ native:
 
 テストは、環境変数 `PREPARE_DEV_BOUNDS_DIR` が指すディレクトリ（その RUN の出力の中）に JSON のファイルを書くと、その数値と文字列を RUN の `scope.bounds` に残せる。流した件数や使ったデータ、検査したものを証拠に残すのに使う。プロジェクト共通の設定は `.prepare-dev/config.json` の `plugins.gotest` に置ける。
 
-使った `go` の場所を `tool.extra.path` に残す。検証はデーモンが動かすので、道具の探し方（PATH と `~/.elan/bin`・`~/.cargo/bin`・`~/.local/bin`）と、`PREPARE_DEV_` で始まるもの以外の環境変数（`GOFLAGS`、`CGO_ENABLED` など）は、デーモンを起動した CLI のものが使われ続け、RUN には残らない。道具や環境を変えたら `prepare-dev stop` で止めてから使う。
+使った `go` の場所を `tool.extra.path` に残す。検証はデーモンが動かすので、道具の探し方（PATH と `~/.elan/bin`・`~/.cargo/bin`・`~/.local/bin`）と、`PREPARE_DEV_` で始まるもの以外の環境変数（`GOFLAGS`、`CGO_ENABLED` など）は、デーモンを起動した CLI のものが使われ続け、RUN には残らない。道具や環境を変えたら `ppdev stop` で止めてから使う。
 
 ## 設定の項目
 

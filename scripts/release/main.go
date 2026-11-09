@@ -76,8 +76,8 @@ func main() {
 		if err != nil {
 			fail("%v", err)
 		}
-		bin := filepath.Join(tmp, "prepare-dev")
-		cmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w -X main.version="+*version, "-o", bin, "./cmd/prepare-dev")
+		bin := filepath.Join(tmp, "ppdev")
+		cmd := exec.Command("go", "build", "-trimpath", "-ldflags", "-s -w -X main.version="+*version, "-o", bin, "./cmd/ppdev")
 		cmd.Env = append(os.Environ(), "GOOS="+goos, "GOARCH="+goarch, "CGO_ENABLED=0")
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 		if err := cmd.Run(); err != nil {
@@ -88,7 +88,7 @@ func main() {
 			fail("%v", err)
 		}
 		name := fmt.Sprintf("prepare-dev-%s-%s-%s", *version, goos, goarch)
-		archive, err := pack(name, map[string][]byte{"prepare-dev": binData, "README.md": readme, "THIRD_PARTY_NOTICES.txt": notices})
+		archive, err := pack(name, map[string][]byte{"ppdev": binData, "README.md": readme, "THIRD_PARTY_NOTICES.txt": notices})
 		if err != nil {
 			fail("%v", err)
 		}
@@ -137,7 +137,7 @@ func pack(dir string, files map[string][]byte) ([]byte, error) {
 	}
 	for _, n := range names {
 		mode := int64(0o644)
-		if n == "prepare-dev" {
+		if n == "ppdev" {
 			mode = 0o755
 		}
 		hdr := &tar.Header{Name: dir + "/" + n, Mode: mode, Size: int64(len(files[n])), ModTime: epoch, Typeflag: tar.TypeReg, Format: tar.FormatPAX}
@@ -171,7 +171,7 @@ func thirdPartyNotices() ([]byte, error) {
 	if text, err := os.ReadFile(filepath.Join(strings.TrimSpace(string(goroot)), "LICENSE")); err == nil {
 		section(&b, "Go standard library and runtime", string(text))
 	}
-	out, err := exec.Command("go", "list", "-deps", "-f", "{{with .Module}}{{if not .Main}}{{.Path}}@{{.Version}} {{.Dir}}{{end}}{{end}}", "./cmd/prepare-dev").Output()
+	out, err := exec.Command("go", "list", "-deps", "-f", "{{with .Module}}{{if not .Main}}{{.Path}}@{{.Version}} {{.Dir}}{{end}}{{end}}", "./cmd/ppdev").Output()
 	if err != nil {
 		return nil, err
 	}
