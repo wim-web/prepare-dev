@@ -1,7 +1,7 @@
 {
   "id": "Q-0031",
   "rev": 1,
-  "state": "open",
+  "state": "applied",
   "kind": "single_choice",
   "created_at": "2026-11-09T17:10:32.660Z",
   "created_by": {
@@ -35,6 +35,29 @@
     }
   ],
   "allow_free_text": true,
-  "answers": [],
+  "answers": [
+    {
+      "answer_id": "ANS-0031-1",
+      "answered_at": "2026-11-09T17:30:23.540Z",
+      "subjects_at_answer": [
+        {
+          "id": "DES-0004",
+          "rev": 9,
+          "sha256": "e051b6c01471cf840c223db9af070ccc370504e837c336c324bd9ddbe92b2f59"
+        }
+      ],
+      "stale": false,
+      "choice": [
+        "full"
+      ],
+      "text": null,
+      "received_at": "2026-11-09T17:31:43.815Z",
+      "applied_as": {
+        "decision_id": "DEC-0010",
+        "txid": "291fe77b079fa334"
+      },
+      "closed": null
+    }
+  ],
   "cancelled": null
 }

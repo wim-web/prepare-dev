@@ -65,6 +65,12 @@ type Capabilities struct {
 	Methods    []string
 	Properties []string
 	Tools      []string
+	// Config declares every key the plugin reads from its config and the kind of its
+	// value ("string", "strings", "int" or "env", an object of strings). The runtime
+	// refuses a job whose config has another key or a value of another kind (SPEC-0003
+	// V5): a misspelled impl_files must not drop files from the record unnoticed. Nil
+	// declares no key: the plugin accepts no config.
+	Config map[string]string
 }
 
 // DetectResult tells whether the tools are installed.
@@ -378,6 +384,70 @@ func ConfigInt(cfg *core.OMap, key string, def int64) int64 {
 		return i
 	}
 	return def
+}
+
+var configKindText = map[string]string{"string": "a string", "strings": "an array of strings", "int": "an integer", "env": "an object of strings"}
+
+// CheckConfig reports the first key of cfg that schema does not declare or whose value is
+// not of the declared kind. A nil schema declares no key.
+func CheckConfig(pluginName string, cfg *core.OMap, schema map[string]string) error {
+	if cfg == nil {
+		return nil
+	}
+	for _, k := range cfg.Keys() {
+		kind, ok := schema[k]
+		if !ok {
+			known := make([]string, 0, len(schema))
+			for name := range schema {
+				known = append(known, name)
+			}
+			sort.Strings(known)
+			list := "none"
+			if len(known) > 0 {
+				list = strings.Join(known, ", ")
+			}
+			return fmt.Errorf("the config of plugin %s has an unknown key %q (known keys: %s)", pluginName, k, list)
+		}
+		v, _ := cfg.Get(k)
+		if !configKindOK(v, kind) {
+			return fmt.Errorf("the config key %q of plugin %s must be %s", k, pluginName, configKindText[kind])
+		}
+	}
+	return nil
+}
+
+func configKindOK(v any, kind string) bool {
+	switch kind {
+	case "string":
+		_, ok := v.(string)
+		return ok
+	case "strings":
+		list, ok := v.([]any)
+		if !ok {
+			return false
+		}
+		for _, x := range list {
+			if _, ok := x.(string); !ok {
+				return false
+			}
+		}
+		return true
+	case "int":
+		_, ok := core.AsInt(v)
+		return ok
+	case "env":
+		m, ok := v.(*core.OMap)
+		if !ok {
+			return false
+		}
+		for _, k := range m.Keys() {
+			if _, ok := m.Str(k); !ok {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 // Severity orders results: verified < unknown < failed < timeout < tool_error < unsupported.

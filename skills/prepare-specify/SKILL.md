@@ -10,7 +10,7 @@ description: Use after design to turn requirements into checkable claims (contra
 ## 入力
 
 - `REQ-*`（受入条件）、`DES-*`（検証計画、状態の置き場所）、`DEC-*`。
-- 使うプラグインの書き方: prepare-verify の skill の `references/` にある `lean4.md`、`vitest.md`、`gotest.md`（この skill と同じ親ディレクトリの `prepare-verify/references/`）。`verify_run` に渡す参照の形式を確認する。
+- 使う検証プラグインの主張の書き方: prepare-verify の skill の `references/` にある `lean4.md`、`vitest.md`、`gotest.md`（この skill と同じ親ディレクトリの `prepare-verify/references/`。init はすべての skill を並べて入れる）。`verify_run` に渡す参照の形式を確認する。
 
 ## 主張の種類
 
@@ -30,7 +30,7 @@ description: Use after design to turn requirements into checkable claims (contra
 1. `REQ-*` の受入条件ごとに、主張の文（statement）を書く。曖昧な語（適切に、正しく、速やかに）を使わない。何が観測できれば満たしたといえるかを書く。
 2. 各主張に、使うプラグインと native 参照を付ける（Lean の定理名、テストファイルとテスト名など）。参照先がまだ存在しなければ、名前だけ決めて `prepare-verify` で作る。
 3. 前提（`assumptions`）と対象外（`out_of_scope`）を列挙する。モデルの初期状態、許可する遷移、扱わない故障を含める。
-4. 状態機械や不変条件は本文に明示する。表や箇条書きでよい。
+4. 状態機械や不変条件は本文に明示する。表や箇条書きでよい。RUN にできない確認（配布物を別の場所で動かす、ブラウザで操作する、実機で試すなど）が要る受入条件は、手の確認として本文に書く。確認ごとに、何を確かめるかと、やり直しの条件（どの場所を変えたら、その確認をやり直すか）を書く。やり直しの条件は仕様か `DES-*` に書き、仕様から指す（`DES-*` に書けば、条件を直しても仕様の版は進まず、RUN は当てはまり続ける）。
 5. `record_put` で `SPEC-*` を書く。frontmatter: `claims`（`id`、`statement`、`requirement`、`native: [{plugin, ref}]`）、`assumptions`、`out_of_scope`、`links.specifies`（`REQ-*`）。
 6. **前段との照合**: `DES-*` の検証計画と `REQ-*` の受入条件をすべて主張が覆っているか、`DEC-*` に反する主張がないかを確認し、本文に書く。主張を書くうちに設計の欠陥（設計どおりに作ると主張が偽になる、設計の前提が誤っている）を見つけたら、`DES-*` は直さない（未回答の質問の対象なら回答が `stale` になる）。推奨する直し方を前提にして `SPEC-*` を書き、その前提を `assumptions` に、`DES-*` に書き戻す内容を本文の「`DES-*` に反映すべき事項」に残し、直し方を候補つきの質問にする。設計の場合分けをそのまま主張に写すと、設計の誤った前提も主張に写る。並行性や中断が関わる手順は、場合分けのテストに加えて状態の探索で確かめられないかを検討する。
 7. `prepare-review` で comprehension、design_critique、implementation_readiness のレビューを受け、指摘を処理する。
@@ -38,7 +38,7 @@ description: Use after design to turn requirements into checkable claims (contra
 
 ## 終了条件
 
-- すべての受入条件に少なくとも一つの主張が対応し、各主張にプラグインと native 参照がある。
+- すべての受入条件に少なくとも一つの主張か手の確認が対応し、各主張にプラグインと native 参照が、各手の確認にやり直しの条件がある。
 - `assumptions` と `out_of_scope` が書かれ、主張の保証の範囲が読める。
 - 主張の文が、検証記録の `result` だけで真偽を判定できる形になっている。
 

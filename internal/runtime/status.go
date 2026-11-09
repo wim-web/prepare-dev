@@ -49,15 +49,21 @@ type Counts struct {
 }
 
 type StatusView struct {
-	Root              string            `json:"root"`
-	Pending           []PendingAnswer   `json:"pending"`
-	WaitingQuestions  []WaitingQuestion `json:"waiting_questions"`
-	Inflight          []InflightTx      `json:"inflight"`
-	RecoveryPending   bool              `json:"recovery_pending"`
-	OpenFindings      []OpenFinding     `json:"open_findings"`
-	StaleDecisions    []TraceDecision   `json:"stale_decisions"`
-	RunsNotApplicable []RunStatus       `json:"runs_not_applicable"`
-	RunsCurrent       []RunStatus       `json:"runs_current"`
+	Root             string            `json:"root"`
+	Pending          []PendingAnswer   `json:"pending"`
+	WaitingQuestions []WaitingQuestion `json:"waiting_questions"`
+	Inflight         []InflightTx      `json:"inflight"`
+	RecoveryPending  bool              `json:"recovery_pending"`
+	OpenFindings     []OpenFinding     `json:"open_findings"`
+	StaleDecisions   []TraceDecision   `json:"stale_decisions"`
+	// RunsCurrent and RunsNotApplicable are the runs that decide current results (the
+	// newest run of a plugin a claim names, SPEC-0003 V6), split by whether they apply
+	// now; the claims a run that does not apply covers have no current evidence from that
+	// plugin. RunsOlder counts the other runs (older ones, and runs of plugins or claims a
+	// spec no longer names), kept as history and not checked.
+	RunsNotApplicable []RunStatus `json:"runs_not_applicable"`
+	RunsCurrent       []RunStatus `json:"runs_current"`
+	RunsOlder         int         `json:"runs_older"`
 	// RunsIncomplete were started but never recorded and are not running now: the daemon
 	// stopped or failed during the run. Their artifact directories keep what was written.
 	RunsIncomplete []string        `json:"runs_incomplete"`
@@ -133,8 +139,47 @@ func (s *Status) View() (*StatusView, error) {
 	if err != nil {
 		return nil, err
 	}
-	notApplicable, current := []RunStatus{}, []RunStatus{}
+	// the newest run of each plugin for each claim decides that claim's current result
+	// (SPEC-0003 V6); only those are checked against the current files. A claim counts
+	// with the plugins it names now in a spec that is not superseded, as in trace.
+	named := map[string]bool{}
+	for _, e := range s.store.IndexEntries() {
+		if prefix, _, ok := core.ParseID(e.ID); !ok || prefix != "SPEC" {
+			continue
+		}
+		sp, err := s.store.ReadRecord(e.ID)
+		if err != nil || fmString(sp.Frontmatter, "status") == "superseded" {
+			continue // an unreadable spec is among the problems
+		}
+		for _, c := range claimsOf(sp) {
+			cid, _ := c.Str("id")
+			for _, p := range nativePlugins(c) {
+				named[sp.ID+"\x00"+cid+"\x00"+p] = true
+			}
+		}
+	}
+	newest := map[string]*core.RunRecord{}
 	for _, r := range runs {
+		for _, c := range r.Claims {
+			k := c.Spec.ID + "\x00" + c.Claim + "\x00" + r.Plugin.Name
+			if !named[k] {
+				continue
+			}
+			if cur, ok := newest[k]; !ok || newerRun(r.Environment.FinishedAt, r.ID, cur.Environment.FinishedAt, cur.ID) {
+				newest[k] = r
+			}
+		}
+	}
+	deciding := map[string]bool{}
+	for _, r := range newest {
+		deciding[r.ID] = true
+	}
+	notApplicable, current, older := []RunStatus{}, []RunStatus{}, 0
+	for _, r := range runs {
+		if !deciding[r.ID] {
+			older++
+			continue
+		}
 		first := ""
 		if len(r.Claims) > 0 {
 			first = r.Claims[0].Claim
@@ -171,7 +216,7 @@ func (s *Status) View() (*StatusView, error) {
 	}
 	return &StatusView{
 		Root: s.store.Root, Pending: pending, WaitingQuestions: waiting, Inflight: inflight, RecoveryPending: recoveryPending,
-		OpenFindings: findings, StaleDecisions: stale, RunsNotApplicable: notApplicable, RunsCurrent: current,
+		OpenFindings: findings, StaleDecisions: stale, RunsNotApplicable: notApplicable, RunsCurrent: current, RunsOlder: older,
 		RunsIncomplete: incomplete, Jobs: jobs, Problems: problems,
 		Counts: Counts{Records: len(s.store.IndexEntries()), Questions: len(s.store.ListQuestionIDs()), Runs: len(runs), Events: len(s.store.Events())},
 	}, nil

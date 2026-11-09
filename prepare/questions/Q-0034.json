@@ -1,0 +1,58 @@
+{
+  "id": "Q-0034",
+  "rev": 1,
+  "state": "applied",
+  "kind": "single_choice",
+  "created_at": "2026-11-09T18:51:42.493Z",
+  "created_by": {
+    "host": "cli"
+  },
+  "subjects": [
+    {
+      "id": "DES-0004",
+      "rev": 12,
+      "sha256": "f14fb35d0f5b77a22c64d505b1743ca2b317e3239caebc93a11efb0413da7edf"
+    }
+  ],
+  "prompt": "# 記録の置き場の決まりを、prepare-dev を使うすべてのプロジェクトに求めるか\n\n## 背景\n\nこのリポジトリでは、工程の外の記録（人やエージェントが手で確かめたこと、引き継ぎの原文、案）を prepare/ の記録（REC・PRO）にし、docs/ には書かないことにしました。チャットでの指摘「prepare-dev自体もparepare-devに移行しないとおかしくない？それなのにdocsとかあるのがおかしいよね」と、「コミットして移す」によるものです。\n\nその計画で、エージェント向けの手順書（skills の prepare-dev と prepare-verify）にこの決まりを足しました。手順書は init ですべての対象プロジェクトに入るので、この決まりはそれらのプロジェクトのエージェントの振る舞いも変えます（手で確かめたことは REC に書く、工程の記録を docs/ などに書かない）。このリポジトリの決まりを、設計者がすべてのプロジェクトに広げたものなので、判断として残すために聞きます。\n\n## 決めること\n\nこの決まりを手順書に入れて、すべての対象プロジェクトに求めるか、このリポジトリだけの決まりにするか。\n\n## 人の判断が必要な理由\n\nprepare-dev を使うほかのプロジェクトのやり方を変えるかどうかの判断で、使う人が決めることです。\n",
+  "options": [
+    {
+      "key": "all",
+      "label": "すべてのプロジェクトに求める（今のまま）",
+      "summary": "手順書の決まりとして残す。どのプロジェクトでも、手で確かめたことは REC になり、工程の記録が prepare/ の外に散らばらない。",
+      "recommended": true,
+      "reason": "prepare-dev は要求から証拠までを一か所に残すための道具なので、手で確かめたことも同じ所に残る方が、このリポジトリで指摘されたのと同じ理由で筋が通る。"
+    },
+    {
+      "key": "repo",
+      "label": "このリポジトリだけにする",
+      "summary": "手順書から外し、このリポジトリの運用として設計（DES-0004）にだけ書く。ほかのプロジェクトは、手で確かめたことの残し方を自分で決める。"
+    }
+  ],
+  "allow_free_text": true,
+  "answers": [
+    {
+      "answer_id": "ANS-0034-1",
+      "answered_at": "2026-11-09T19:32:25.127Z",
+      "subjects_at_answer": [
+        {
+          "id": "DES-0004",
+          "rev": 12,
+          "sha256": "f14fb35d0f5b77a22c64d505b1743ca2b317e3239caebc93a11efb0413da7edf"
+        }
+      ],
+      "stale": false,
+      "choice": [
+        "all"
+      ],
+      "text": null,
+      "received_at": "2026-11-09T19:33:41.233Z",
+      "applied_as": {
+        "decision_id": "DEC-0013",
+        "txid": "e84e557d6104b118"
+      },
+      "closed": null
+    }
+  ],
+  "cancelled": null
+}

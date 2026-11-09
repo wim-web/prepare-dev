@@ -28,6 +28,9 @@ type config struct {
 	timeout    time.Duration
 }
 
+// configKeys are the keys cfg reads; the runtime refuses any other.
+var configKeys = map[string]string{"project_dir": "string", "impl_files": "strings", "bounds_from": "string", "timeout_ms": "int", "env": "env"}
+
 func cfg(job *plugin.Job) config {
 	c := config{
 		projectDir: plugin.ConfigString(job.Config, "project_dir", "."),
@@ -172,10 +175,10 @@ type Plugin struct{}
 func New() *Plugin { return &Plugin{} }
 
 func (p *Plugin) Name() string    { return "vitest" }
-func (p *Plugin) Version() string { return "0.3.0" }
+func (p *Plugin) Version() string { return "0.4.0" }
 
 func (p *Plugin) Capabilities() plugin.Capabilities {
-	return plugin.Capabilities{Languages: []string{"typescript", "javascript"}, Methods: []string{"test"}, Properties: []string{"example", "property", "conformance"}, Tools: []string{"vitest"}}
+	return plugin.Capabilities{Languages: []string{"typescript", "javascript"}, Methods: []string{"test"}, Properties: []string{"example", "property", "conformance"}, Tools: []string{"vitest"}, Config: configKeys}
 }
 
 func (p *Plugin) Detect(job *plugin.Job) plugin.DetectResult {

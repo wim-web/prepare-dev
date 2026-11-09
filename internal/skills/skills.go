@@ -30,7 +30,7 @@ type Result struct {
 	// moved to Backup and replaced (only with Options.Replace).
 	Replaced []Replacement `json:"replaced"`
 	// Conflicts differ and were left alone: edited by the user, installed by another
-	// means, a symlink, or outside the root.
+	// means, a symlink or a file, or outside the root.
 	Conflicts []string `json:"conflicts"`
 }
 
@@ -42,10 +42,13 @@ type Replacement struct {
 
 // Options control Copy.
 type Options struct {
-	// Replace backs up and replaces skills that differ (not symlinks or paths outside root).
+	// Replace backs up and replaces skill directories that differ (not symlinks, files, or
+	// destinations that are not directories under root).
 	Replace bool
 	// Now names the backup directory; zero means time.Now().
 	Now time.Time
+	// DryRun reports what Copy would do without writing anything (Plan uses it).
+	DryRun bool
 }
 
 // ManifestPath is where the installed digests are kept.
@@ -56,6 +59,10 @@ func ManifestPath(root string) string {
 type manifest struct {
 	// Installed maps "<destination relative to root>/<skill>" to the digest installed.
 	Installed map[string]string `json:"installed"`
+	// Destinations are the destinations (relative to root) of the last init that copied
+	// skills, the ones status compares. skills.json written before 0.3.0 has none, and the
+	// destinations of Installed stand for them.
+	Destinations []string `json:"destinations,omitempty"`
 }
 
 func readManifest(root string) (manifest, error) {
@@ -95,7 +102,12 @@ func writeManifest(root string, m manifest) error {
 	if len(keys) > 0 {
 		b.WriteString("\n  ")
 	}
-	b.WriteString("}\n}\n")
+	b.WriteString("}")
+	if m.Destinations != nil {
+		dj, _ := json.Marshal(m.Destinations)
+		fmt.Fprintf(&b, ",\n  \"destinations\": %s", dj)
+	}
+	b.WriteString("\n}\n")
 	path := ManifestPath(root)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -155,6 +167,90 @@ func insideRoot(realRoot, dest string) bool {
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
 }
 
+// Pending is what the next init would do to the skills it installed before (recorded in
+// .prepare-dev/skills.json), as paths relative to root.
+type Pending struct {
+	// Copy are skills of this build that are not installed next to the others (removed,
+	// or added by a newer build): init copies them.
+	Copy []string `json:"copy"`
+	// Update were installed by init, not edited since, and differ from this build: init
+	// replaces them.
+	Update []string `json:"update"`
+	// Leave differ from this build and init leaves them as they are: edited by the user,
+	// or not installed by init. init --replace-skills backs them up and replaces them.
+	Leave []string `json:"leave"`
+	// Manual are left alone even by init --replace-skills: a symlink or a file where a
+	// skill directory goes, or a destination that is a symlink, a file or outside the
+	// root. They are fixed by hand.
+	Manual []string `json:"manual"`
+}
+
+// Plan runs Copy without writing anything into the destinations of the last init that
+// copied skills (recorded in skills.json), so status says what init would do. It returns
+// nil when init installed no skills (no skills.json, or only init --no-skills) or when
+// init would change nothing.
+func Plan(source fs.FS, root string) (*Pending, error) {
+	m, err := readManifest(root)
+	if err != nil {
+		return nil, err
+	}
+	var dests []string
+	if m.Destinations != nil {
+		for _, d := range m.Destinations {
+			dests = append(dests, filepath.Join(root, filepath.FromSlash(d)))
+		}
+	} else {
+		seen := map[string]bool{}
+		for key := range m.Installed {
+			i := strings.LastIndex(key, "/")
+			if i <= 0 || seen[key[:i]] {
+				continue
+			}
+			seen[key[:i]] = true
+			dests = append(dests, filepath.Join(root, filepath.FromSlash(key[:i])))
+		}
+	}
+	if len(dests) == 0 {
+		return nil, nil
+	}
+	sort.Strings(dests)
+	res, err := Copy(source, dests, root, Options{DryRun: true})
+	if err != nil {
+		return nil, err
+	}
+	// what is still left with --replace-skills needs a hand
+	forced, err := Copy(source, dests, root, Options{DryRun: true, Replace: true})
+	if err != nil {
+		return nil, err
+	}
+	manual := map[string]bool{}
+	for _, x := range forced.Conflicts {
+		manual[x] = true
+	}
+	var leave, byHand []string
+	for _, x := range res.Conflicts {
+		if manual[x] {
+			byHand = append(byHand, x)
+		} else {
+			leave = append(leave, x)
+		}
+	}
+	rel := func(paths []string) []string {
+		out := []string{}
+		for _, x := range paths {
+			if r, err := filepath.Rel(root, x); err == nil {
+				out = append(out, filepath.ToSlash(r))
+			}
+		}
+		return out
+	}
+	pending := &Pending{Copy: rel(res.Copied), Update: rel(res.Updated), Leave: rel(leave), Manual: rel(byHand)}
+	if len(pending.Copy) == 0 && len(pending.Update) == 0 && len(pending.Leave) == 0 && len(pending.Manual) == 0 {
+		return nil, nil
+	}
+	return pending, nil
+}
+
 // Copy installs every skill (a directory with SKILL.md) of source into each destination
 // (absolute paths under root).
 func Copy(source fs.FS, destinations []string, root string, opts Options) (Result, error) {
@@ -191,8 +287,10 @@ func Copy(source fs.FS, destinations []string, root string, opts Options) (Resul
 		if err != nil {
 			return res, err
 		}
-		if err := os.MkdirAll(dest, 0o755); err != nil {
-			return res, err
+		if !opts.DryRun {
+			if err := os.MkdirAll(dest, 0o755); err != nil {
+				return res, err
+			}
 		}
 		for _, n := range names {
 			name := n.Name()
@@ -207,8 +305,10 @@ func Copy(source fs.FS, destinations []string, root string, opts Options) (Resul
 			to := filepath.Join(dest, name)
 			st, err := os.Lstat(to)
 			if errors.Is(err, fs.ErrNotExist) {
-				if err := copyTree(source, name, to); err != nil {
-					return res, err
+				if !opts.DryRun {
+					if err := copyTree(source, name, to); err != nil {
+						return res, err
+					}
 				}
 				m.Installed[key] = want
 				changed = true
@@ -232,16 +332,20 @@ func Copy(source fs.FS, destinations []string, root string, opts Options) (Resul
 				res.Unchanged = append(res.Unchanged, to)
 			case m.Installed[key] == have:
 				// installed by prepare-dev and not edited since: take this version
-				if err := replace(source, name, to, ""); err != nil {
-					return res, err
+				if !opts.DryRun {
+					if err := replace(source, name, to, ""); err != nil {
+						return res, err
+					}
 				}
 				m.Installed[key] = want
 				changed = true
 				res.Updated = append(res.Updated, to)
 			case opts.Replace:
 				backup := filepath.Join(backupDir, relDest, name)
-				if err := replace(source, name, to, backup); err != nil {
-					return res, err
+				if !opts.DryRun {
+					if err := replace(source, name, to, backup); err != nil {
+						return res, err
+					}
 				}
 				m.Installed[key] = want
 				changed = true
@@ -251,7 +355,22 @@ func Copy(source fs.FS, destinations []string, root string, opts Options) (Resul
 			}
 		}
 	}
-	if changed {
+	// the destinations of this init are the ones status compares from now on (init
+	// --skills-dir leaves the others out; init --no-skills passes none and keeps them)
+	if len(destinations) > 0 {
+		rels := []string{}
+		for _, d := range destinations {
+			if r, err := filepath.Rel(root, d); err == nil {
+				rels = append(rels, filepath.ToSlash(r))
+			}
+		}
+		sort.Strings(rels)
+		if strings.Join(rels, "\x00") != strings.Join(m.Destinations, "\x00") || m.Destinations == nil {
+			m.Destinations = rels
+			changed = true
+		}
+	}
+	if changed && !opts.DryRun {
 		if err := writeManifest(root, m); err != nil {
 			return res, err
 		}

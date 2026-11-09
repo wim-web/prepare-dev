@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"github.com/wim-web/prepare-dev/internal/core"
+	"github.com/wim-web/prepare-dev/internal/plugin"
 	"github.com/wim-web/prepare-dev/internal/store"
 )
 
@@ -19,13 +20,16 @@ type TraceRun struct {
 	Summary     string     `json:"summary"`
 }
 
-// TraceClaim is a spec claim with its runs; Current is the best applicable evidence.
+// TraceClaim is a spec claim with its runs, newest first. Current is the run that decides
+// the claim's current result and Missing lists the plugins the claim names that have no
+// current evidence; while one is missing, Current is nil (SPEC-0003 V6).
 type TraceClaim struct {
 	ID          string     `json:"id"`
 	Statement   string     `json:"statement"`
 	Requirement *string    `json:"requirement"`
 	Runs        []TraceRun `json:"runs"`
 	Current     *TraceRun  `json:"current"`
+	Missing     []string   `json:"missing"`
 }
 
 type TraceSpec struct {
@@ -304,7 +308,19 @@ func (t *Trace) ReviewsFor(id string) ([]TraceReview, error) {
 
 // RunView shows a run as evidence for one claim.
 func (t *Trace) RunView(run *core.RunRecord, claimID string) TraceRun {
-	app := t.runs.Applicability(run)
+	return t.runView(run, claimID, nil)
+}
+
+// runView is RunView with the applicability of each run computed once per memo: a trace
+// shows a run under every claim it covers, and each check reads all its input files.
+func (t *Trace) runView(run *core.RunRecord, claimID string, memo map[string]Applicability) TraceRun {
+	app, ok := memo[run.ID]
+	if !ok {
+		app = t.runs.Applicability(run)
+		if memo != nil {
+			memo[run.ID] = app
+		}
+	}
 	claimResult := run.Result
 	for _, c := range run.Claims {
 		if c.Claim == claimID {
@@ -320,7 +336,7 @@ func (t *Trace) RunView(run *core.RunRecord, claimID string) TraceRun {
 }
 
 // SpecView lists the claims of a spec with their runs, newest first.
-func (t *Trace) SpecView(spec *store.RecordView, allRuns []*core.RunRecord) TraceSpec {
+func (t *Trace) SpecView(spec *store.RecordView, allRuns []*core.RunRecord, memo map[string]Applicability) TraceSpec {
 	claims := []TraceClaim{}
 	for _, c := range claimsOf(spec) {
 		cid, _ := c.Str("id")
@@ -328,30 +344,63 @@ func (t *Trace) SpecView(spec *store.RecordView, allRuns []*core.RunRecord) Trac
 		for _, r := range allRuns {
 			for _, rc := range r.Claims {
 				if rc.Spec.ID == spec.ID && rc.Claim == cid {
-					runs = append(runs, t.RunView(r, cid))
+					runs = append(runs, t.runView(r, cid, memo))
 					break
 				}
 			}
 		}
 		sortRunViewsDesc(runs)
-		var current *TraceRun
+		current, missing := currentOf(runs, nativePlugins(c))
+		claims = append(claims, TraceClaim{ID: cid, Statement: fmString(c, "statement"), Requirement: fmStringPtr(c, "requirement"), Runs: runs, Current: current, Missing: missing})
+	}
+	return TraceSpec{ID: spec.ID, Title: fmString(spec.Frontmatter, "title"), Rev: spec.Rev, Status: fmString(spec.Frontmatter, "status"), Claims: claims}
+}
+
+// currentOf decides a claim's current result from its runs, newest first (SPEC-0003 V6).
+// For each plugin the claim names, only the newest run of that plugin counts, and only
+// while it applies: an older run that still applies need not have checked what the
+// newer one did (a run taken before impl_files listed an input keeps applying when that
+// input changes, and the runtime does not compare the config a run was taken with). The
+// claim's current evidence is the worst of those runs, so a newer verified run of one
+// plugin does not hide a failed run of another; a plugin without current evidence leaves
+// the claim without it.
+func currentOf(runs []TraceRun, plugins []string) (*TraceRun, []string) {
+	missing := []string{}
+	var current *TraceRun
+	for _, name := range plugins {
+		var newest *TraceRun
 		for i := range runs {
-			if runs[i].Applicable && runs[i].ClaimResult == "verified" {
-				current = &runs[i]
+			if runs[i].Plugin == name {
+				newest = &runs[i]
 				break
 			}
 		}
-		if current == nil {
-			for i := range runs {
-				if runs[i].Applicable {
-					current = &runs[i]
-					break
-				}
-			}
+		if newest == nil || !newest.Applicable {
+			missing = append(missing, name)
+			continue
 		}
-		claims = append(claims, TraceClaim{ID: cid, Statement: fmString(c, "statement"), Requirement: fmStringPtr(c, "requirement"), Runs: runs, Current: current})
+		if current == nil || plugin.Severity[newest.ClaimResult] > plugin.Severity[current.ClaimResult] {
+			current = newest
+		}
 	}
-	return TraceSpec{ID: spec.ID, Title: fmString(spec.Frontmatter, "title"), Rev: spec.Rev, Status: fmString(spec.Frontmatter, "status"), Claims: claims}
+	if len(missing) > 0 {
+		return nil, missing
+	}
+	return current, missing
+}
+
+// nativePlugins lists the plugins a claim names in its native references, once each.
+func nativePlugins(claim *core.OMap) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, n := range nativeRefs(claim) {
+		name, _ := n.Str("plugin")
+		if name != "" && !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // LinksFor follows links in both directions; provisional decisions are excluded.
@@ -446,9 +495,10 @@ func (t *Trace) For(id string) (*TraceView, error) {
 		}
 	}
 	specs := []TraceSpec{}
+	memo := map[string]Applicability{}
 	switch rec.Kind {
 	case "spec":
-		specs = append(specs, t.SpecView(rec, allRuns))
+		specs = append(specs, t.SpecView(rec, allRuns, memo))
 	case "requirement":
 		all, err := t.store.ListRecords("spec")
 		if err != nil {
@@ -462,7 +512,7 @@ func (t *Trace) For(id string) (*TraceView, error) {
 				}
 			}
 			if match {
-				specs = append(specs, t.SpecView(s, allRuns))
+				specs = append(specs, t.SpecView(s, allRuns, memo))
 			}
 		}
 	}

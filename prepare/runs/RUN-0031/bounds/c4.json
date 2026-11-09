@@ -1,0 +1,6 @@
+{
+  "c4_failures": 0,
+  "c4_steps": 12000,
+  "c4_trace_file": "model/traces/depth-6.jsonl",
+  "c4_traces": 2000
+}

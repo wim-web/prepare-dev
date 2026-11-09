@@ -213,7 +213,13 @@ func run(a *args, out io.Writer) error {
 			return err
 		}
 		if a.has("json") {
-			return printOut(out, id)
+			// the plugin versions let an agent tell whether the guidance in its skills
+			// (references/<plugin>.md names the version it describes) is older than this build
+			plugins := core.NewOMap()
+			for _, p := range Plugins() {
+				plugins.Set(p.Name(), p.Version())
+			}
+			return printOut(out, core.OM("version", id.Version, "build", id.Build, "path", id.Path, "root", id.Root, "mode", id.Mode, "plugins", plugins))
 		}
 		return printOut(out, id.Version)
 	}
@@ -500,6 +506,17 @@ func jsonOf(v any) string {
 	return string(data)
 }
 
+// strList reads a JSON array of strings.
+func strList(v any) []string {
+	out := []string{}
+	for _, x := range asList(v) {
+		if t, ok := x.(string); ok {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
 func cmdStatus(a *args, out io.Writer) error {
 	c, err := client(a)
 	if err != nil {
@@ -509,10 +526,18 @@ func cmdStatus(a *args, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if a.has("json") {
-		return printOut(out, v)
-	}
 	s := asMap(v)
+	// the skills init installed are compared here and not in the daemon: the daemon is the
+	// same build, and the comparison writes nothing
+	plan, planErr := skills.Plan(preparedev.Skills(), fstr(s, "root"))
+	if planErr != nil {
+		s.Set("skills_error", ".prepare-dev/skills.json: "+planErr.Error())
+	} else if plan != nil {
+		s.Set("skills", plan)
+	}
+	if a.has("json") {
+		return printOut(out, s)
+	}
 	pending := asList(field(s, "pending"))
 	findings := asList(field(s, "open_findings"))
 	waiting := asList(field(s, "waiting_questions"))
@@ -543,10 +568,20 @@ func cmdStatus(a *args, out io.Writer) error {
 		lines = append(lines, "stale decisions: "+strings.Join(stale, ", "))
 	}
 	notApp := asList(field(s, "runs_not_applicable"))
-	lines = append(lines, fmt.Sprintf("runs current: %d, not applicable to current versions: %d", len(asList(field(s, "runs_current"))), len(notApp)))
+	cur := asList(field(s, "runs_current"))
+	lines = append(lines, fmt.Sprintf("runs that decide the current results (the newest run of each plugin for each claim): %d apply, %d do not apply to the current versions; older runs kept as history: %s", len(cur), len(notApp), jsonOf(field(s, "runs_older"))))
 	for _, r := range notApp {
 		m := asMap(r)
-		lines = append(lines, fmt.Sprintf("  %s %s (%d mismatches)", fstr(m, "run_id"), fstr(m, "result"), len(asList(field(m, "mismatches")))))
+		lines = append(lines, fmt.Sprintf("  %s %s (%d mismatches): no current evidence for %s until run again", fstr(m, "run_id"), fstr(m, "result"), len(asList(field(m, "mismatches"))), strings.Join(strList(field(m, "claims")), ", ")))
+	}
+	for _, r := range cur {
+		m := asMap(r)
+		if fstr(m, "result") != "verified" {
+			lines = append(lines, fmt.Sprintf("  %s %s: the current result of %s", fstr(m, "run_id"), fstr(m, "result"), strings.Join(strList(field(m, "claims")), ", ")))
+		}
+	}
+	if len(notApp) > 0 || len(cur) > 0 {
+		lines = append(lines, "  the current result of each claim: prepare-dev trace <SPEC or REQ id> (current and missing)")
 	}
 	if inc := asList(field(s, "runs_incomplete")); len(inc) > 0 {
 		var ids []string
@@ -556,6 +591,23 @@ func cmdStatus(a *args, out io.Writer) error {
 			}
 		}
 		lines = append(lines, fmt.Sprintf("runs started but never recorded: %d (%s); run them again", len(ids), strings.Join(ids, ", ")))
+	}
+	if planErr != nil {
+		lines = append(lines, "skills: cannot compare with this build: .prepare-dev/skills.json: "+planErr.Error())
+	}
+	if plan != nil {
+		if len(plan.Update) > 0 {
+			lines = append(lines, "skills older than this build: "+strings.Join(plan.Update, ", ")+"; run prepare-dev init to update them")
+		}
+		if len(plan.Copy) > 0 {
+			lines = append(lines, "skills of this build not installed: "+strings.Join(plan.Copy, ", ")+"; run prepare-dev init to copy them")
+		}
+		if len(plan.Leave) > 0 {
+			lines = append(lines, "skills init leaves as they are (edited, or not installed by init): "+strings.Join(plan.Leave, ", ")+"; prepare-dev init --replace-skills backs them up and replaces them")
+		}
+		if len(plan.Manual) > 0 {
+			lines = append(lines, "skills init does not touch even with --replace-skills (a symlink, a file, or outside the root): "+strings.Join(plan.Manual, ", ")+"; fix them by hand")
+		}
 	}
 	lines = append(lines, fmt.Sprintf("jobs: %d", len(asList(field(s, "jobs")))), fmt.Sprintf("questions waiting for an answer: %d", len(waiting)))
 	for _, q := range waiting {

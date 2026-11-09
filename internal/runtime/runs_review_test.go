@@ -9,6 +9,9 @@ import (
 
 	"github.com/wim-web/prepare-dev/internal/core"
 	"github.com/wim-web/prepare-dev/internal/plugin"
+	"github.com/wim-web/prepare-dev/internal/plugin/gotest"
+	"github.com/wim-web/prepare-dev/internal/plugin/lean4"
+	"github.com/wim-web/prepare-dev/internal/plugin/vitest"
 	"github.com/wim-web/prepare-dev/internal/store"
 )
 
@@ -18,19 +21,34 @@ func expected(rev int64, sha string) *store.ExpectedVersion {
 
 func fakeRun(t *testing.T, rt *Runtime, specID, reqID, input string) *core.RunRecord {
 	t.Helper()
+	return fakeRunResult(t, rt, specID, reqID, input, "verified")
+}
+
+func fakeRunResult(t *testing.T, rt *Runtime, specID, reqID, input, result string) *core.RunRecord {
+	t.Helper()
+	return fakeRunWith(t, rt, specID, reqID, "fake", result, input)
+}
+
+// fakeRunWith records a run of the named plugin for C1 that read the given files.
+func fakeRunWith(t *testing.T, rt *Runtime, specID, reqID, pluginName, result string, inputs ...string) *core.RunRecord {
+	t.Helper()
 	spec := readRec(t, rt.Store, specID)
 	req := readRec(t, rt.Store, reqID)
-	sha, _ := rt.Store.FileVersion(input)
+	targets := []core.InputFile{}
+	for _, in := range inputs {
+		sha, _ := rt.Store.FileVersion(in)
+		targets = append(targets, core.InputFile{Path: in, SHA256: sha, Role: "target"})
+	}
 	run := &core.RunRecord{
 		ID:     rt.Store.AllocateID("run"),
-		Plugin: core.NameVersion{Name: "fake", Version: "0"},
-		Tool:   core.RunTool{Name: "fake", Version: "0", Extra: core.NewOMap()},
+		Plugin: core.NameVersion{Name: pluginName, Version: "0"},
+		Tool:   core.RunTool{Name: pluginName, Version: "0", Extra: core.NewOMap()},
 		Method: "test",
 		Claims: []core.RunClaim{{Spec: core.SubjectRef{ID: spec.ID, Rev: spec.Rev, SHA256: spec.SHA256}, Claim: "C1",
-			Requirement: &core.SubjectRef{ID: req.ID, Rev: req.Rev, SHA256: req.SHA256}, Native: core.RunNative{Ref: "x"}, Result: "verified"}},
-		Targets:     []core.InputFile{{Path: input, SHA256: sha, Role: "target"}},
+			Requirement: &core.SubjectRef{ID: req.ID, Rev: req.Rev, SHA256: req.SHA256}, Native: core.RunNative{Ref: "x"}, Result: result}},
+		Targets:     targets,
 		Environment: core.RunEnvironment{Platform: "test", StartedAt: "2026-11-08T00:00:00Z", FinishedAt: core.NowISO(), DurationMS: 1000},
-		Result:      "verified",
+		Result:      result,
 		Scope:       core.RunScope{Bounded: true, Bounds: core.OM("tests", int64(1))},
 		Summary:     "fake",
 	}
@@ -67,8 +85,144 @@ func (p *pausedPlugin) Parse(plugin.RawOutput, *plugin.Job, plugin.Inputs) (*cor
 	panic("an unavailable tool has no output")
 }
 
+// configPlugin is pausedPlugin with a declared config.
+type configPlugin struct{ pausedPlugin }
+
+func (p *configPlugin) Capabilities() plugin.Capabilities {
+	return plugin.Capabilities{Methods: []string{"test"}, Config: map[string]string{"project_dir": "string", "impl_files": "strings", "timeout_ms": "int", "env": "env"}}
+}
+
 // SPEC-0003: evidence applicability and run ids.
 func TestRuns(t *testing.T) {
+	run(t, "[V5] a config with an unknown key, a value of another kind or settings for an unknown plugin is refused before the run", func(t *testing.T) {
+		root := t.TempDir()
+		p := &configPlugin{pausedPlugin{gate: make(chan struct{})}}
+		rt := openRT(t, root, Options{Plugins: []Plugin{p}})
+		spec := ok(rt.Store.CreateRecord("spec", core.OM("title", "S", "claims", []any{core.OM("id", "C", "statement", "C", "native", []any{core.OM("plugin", "paused", "ref", "C")})}), "S"))
+		start := func(rt *Runtime, cfg *core.OMap) (JobState, error) {
+			return rt.Runs.Start(StartRunInput{Plugin: "paused", Claims: []plugin.ClaimRequest{{Spec: spec.ID, Claim: "C"}}, Config: cfg})
+		}
+		for _, c := range []struct {
+			cfg  *core.OMap
+			want string
+		}{
+			{core.OM("impl_file", []any{"model/**"}), `unknown key "impl_file"`},
+			{core.OM("impl_files", "model/**"), `"impl_files" of plugin paused must be an array of strings`},
+			{core.OM("impl_files", []any{"model/**", int64(1)}), "must be an array of strings"},
+			{core.OM("timeout_ms", "60s"), "must be an integer"},
+			{core.OM("env", core.OM("A", int64(1))), "must be an object of strings"},
+		} {
+			if _, err := start(rt, c.cfg); err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("%v: %v", c.cfg.Keys(), err)
+			}
+		}
+		if ids := rt.Store.ListRunIDs(); len(ids) != 0 {
+			t.Fatalf("a refused run wrote %v", ids)
+		}
+		job := ok(start(rt, core.OM("impl_files", []any{"model/**"}, "env", core.OM("A", "1"), "timeout_ms", int64(1000), "project_dir", ".")))
+		if job.RunID != "RUN-0001" {
+			t.Fatalf("a refused run used a run id: %s", job.RunID)
+		}
+		close(p.gate)
+		ok(rt.Runs.Wait(job.RunID, 5*time.Second))
+
+		// settings for a plugin the runtime does not have (a misspelled plugin name) stop
+		// every run, since the settings meant for it would never apply
+		noErr(t, os.WriteFile(filepath.Join(root, ".prepare-dev", "config.json"), []byte(`{"records_dir":"prepare","plugins":{"pased":{"impl_files":["model/**"]}}}`), 0o644))
+		rt2 := openRT(t, root, Options{Plugins: []Plugin{&configPlugin{pausedPlugin{gate: make(chan struct{})}}}})
+		if _, err := start(rt2, nil); err == nil || !strings.Contains(err.Error(), `unknown plugin "pased"`) {
+			t.Fatalf("unknown plugin in config.json: %v", err)
+		}
+		if ids := rt2.Store.ListRunIDs(); len(ids) != 1 {
+			t.Fatalf("a refused run wrote a run: %v", ids)
+		}
+
+		// a plugin that declares no key accepts no config, and every plugin of prepare-dev
+		// declares the keys it reads
+		rt3 := openRT(t, t.TempDir(), Options{Plugins: []Plugin{&pausedPlugin{gate: make(chan struct{})}}})
+		spec3 := ok(rt3.Store.CreateRecord("spec", core.OM("title", "S", "claims", []any{core.OM("id", "C", "statement", "C", "native", []any{core.OM("plugin", "paused", "ref", "C")})}), "S"))
+		if _, err := rt3.Runs.Start(StartRunInput{Plugin: "paused", Claims: []plugin.ClaimRequest{{Spec: spec3.ID, Claim: "C"}}, Config: core.OM("impl_files", []any{"x"})}); err == nil || !strings.Contains(err.Error(), "known keys: none") {
+			t.Fatalf("a plugin without declared keys took a config: %v", err)
+		}
+		for _, pl := range []Plugin{gotest.New(), vitest.New(), lean4.New()} {
+			if len(pl.Capabilities().Config) == 0 {
+				t.Fatalf("plugin %s declares no config keys", pl.Name())
+			}
+		}
+	})
+
+	run(t, "[V6] for each plugin a claim names, its newest run decides only while it applies, and the worst of them is the claim's current result", func(t *testing.T) {
+		root := t.TempDir()
+		rt := openRT(t, root)
+		req := ok(rt.Store.CreateRecord("requirement", core.OM("title", "R"), "r\n"))
+		spec := ok(rt.Store.CreateRecord("spec", core.OM("title", "S", "links", core.OM("specifies", []any{req.ID}),
+			"claims", []any{core.OM("id", "C1", "statement", "s", "requirement", req.ID, "native", []any{core.OM("plugin", "fake", "ref", "x")})}), "s\n"))
+		input := filepath.Join("src", "impl.txt")
+		fixture := filepath.Join("src", "fixture.txt")
+		noErr(t, os.MkdirAll(filepath.Join(root, "src"), 0o755))
+		noErr(t, os.WriteFile(filepath.Join(root, input), []byte("v1"), 0o644))
+		noErr(t, os.WriteFile(filepath.Join(root, fixture), []byte("f1"), 0o644))
+		claimOf := func(specID string) TraceClaim { return ok(rt.Trace.For(specID)).Specs[0].Claims[0] }
+
+		// a newer failed run is the current result, not the older verified one
+		older := fakeRun(t, rt, spec.ID, req.ID, input)
+		newer := fakeRunResult(t, rt, spec.ID, req.ID, input, "failed")
+		claim := claimOf(spec.ID)
+		if claim.Current == nil || claim.Current.RunID != newer.ID || claim.Current.ClaimResult != "failed" || len(claim.Missing) != 0 {
+			t.Fatalf("current evidence of C1: %+v %v (older verified %s, newer failed %s)", claim.Current, claim.Missing, older.ID, newer.ID)
+		}
+
+		// a newer run that read one more file (a fixture listed later) stops applying when
+		// that file changes; the older run that never read it still applies, but the claim
+		// has no current evidence until a new run
+		listed := fakeRunWith(t, rt, spec.ID, req.ID, "fake", "verified", input, fixture)
+		if claim = claimOf(spec.ID); claim.Current == nil || claim.Current.RunID != listed.ID {
+			t.Fatalf("current evidence after the run with the fixture: %+v", claim.Current)
+		}
+		noErr(t, os.WriteFile(filepath.Join(root, fixture), []byte("f2"), 0o644))
+		if !rt.Runs.Applicability(older).Applicable || rt.Runs.Applicability(listed).Applicable {
+			t.Fatal("the older run should still apply and the newer one should not")
+		}
+		if claim = claimOf(spec.ID); claim.Current != nil || !eqStrings(claim.Missing, []string{"fake"}) {
+			t.Fatalf("an older run became the current evidence: %+v %v", claim.Current, claim.Missing)
+		}
+		// status follows the same rule: it checks only the run that decides, and counts the
+		// older ones as history
+		st := ok(rt.Status.View())
+		if len(st.RunsNotApplicable) != 1 || st.RunsNotApplicable[0].RunID != listed.ID || len(st.RunsCurrent) != 0 || st.RunsOlder != 2 {
+			t.Fatalf("status runs: not applicable %v, current %v, older %d", st.RunsNotApplicable, st.RunsCurrent, st.RunsOlder)
+		}
+		again := fakeRunWith(t, rt, spec.ID, req.ID, "fake", "verified", input, fixture)
+		if claim = claimOf(spec.ID); claim.Current == nil || claim.Current.RunID != again.ID || claim.Current.ClaimResult != "verified" {
+			t.Fatalf("current evidence after a newer verified run: %+v", claim.Current)
+		}
+
+		// a claim checked by two plugins: a newer verified run of one does not hide the
+		// failed run of the other, and a plugin without a run leaves no current evidence
+		spec2 := ok(rt.Store.CreateRecord("spec", core.OM("title", "S2", "links", core.OM("specifies", []any{req.ID}),
+			"claims", []any{core.OM("id", "C1", "statement", "s", "requirement", req.ID, "native", []any{
+				core.OM("plugin", "model", "ref", "m"), core.OM("plugin", "fake", "ref", "x")})}), "s\n"))
+		fakeRunWith(t, rt, spec2.ID, req.ID, "fake", "verified", input)
+		if claim = claimOf(spec2.ID); claim.Current != nil || !eqStrings(claim.Missing, []string{"model"}) {
+			t.Fatalf("a claim without a run of one plugin: %+v %v", claim.Current, claim.Missing)
+		}
+		failedModel := fakeRunWith(t, rt, spec2.ID, req.ID, "model", "failed", input)
+		fakeRunWith(t, rt, spec2.ID, req.ID, "fake", "verified", input)
+		if claim = claimOf(spec2.ID); claim.Current == nil || claim.Current.RunID != failedModel.ID || claim.Current.ClaimResult != "failed" || len(claim.Missing) != 0 {
+			t.Fatalf("a newer verified run of another plugin hid a failed run: %+v %v", claim.Current, claim.Missing)
+		}
+		if st := ok(rt.Status.View()); len(st.RunsCurrent) != 3 || len(st.RunsNotApplicable) != 0 || st.RunsOlder != 4 {
+			t.Fatalf("status runs at the end: current %v, not applicable %v, older %d", st.RunsCurrent, st.RunsNotApplicable, st.RunsOlder)
+		}
+
+		// of two runs that finished in the same millisecond, the larger number is newer
+		v := []TraceRun{{RunID: "RUN-9999", FinishedAt: "2026-11-10T00:00:00.000Z"}, {RunID: "RUN-0007", FinishedAt: "2026-11-10T00:00:01.000Z"}, {RunID: "RUN-10000", FinishedAt: "2026-11-10T00:00:00.000Z"}}
+		sortRunViewsDesc(v)
+		if v[0].RunID != "RUN-0007" || v[1].RunID != "RUN-10000" || v[2].RunID != "RUN-9999" {
+			t.Fatalf("order of runs: %v", v)
+		}
+	})
+
 	run(t, "[V2] reserves distinct run ids before asynchronous verification finishes and after restart", func(t *testing.T) {
 		root := t.TempDir()
 		p := &pausedPlugin{gate: make(chan struct{})}

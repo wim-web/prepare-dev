@@ -1,5 +1,7 @@
 # vitest プラグイン: 主張の書き方
 
+プラグインの版: vitest 0.4.0。この版の規則を書く。`prepare-dev version --json` の `plugins.vitest` がこれと違えば、この写しは実行ファイルより古いので、`prepare-dev init` で skills を更新する。
+
 対象は vitest を使う TypeScript / JavaScript プロジェクト。証拠の種類は `test`。結果は実行したテストケースの範囲でのみ成り立つ（`scope.bounded = true`）。
 
 ## spec の native 参照
@@ -10,7 +12,7 @@ native:
     ref: src/QuestionView.test.tsx::[U1]
 ```
 
-`ref` は `<テストファイルの末尾一致>::<テスト名に含まれる文字列>`。テスト名に `[C1]` のような主張の印を付けておくと、一つの主張に複数のテストを対応づけられる。`verify_run` の `targets` にテストファイルを渡す。テストのプロジェクトがルート直下でなければ `config.project_dir` に書く。
+`ref` は `<テストファイルの末尾一致>::<テスト名に含まれる文字列>`。テスト名に `[C1]` のような主張の印を付けておくと、一つの主張に複数のテストを対応づけられる。`verify_run` の `targets` にテストファイルを渡す。一つの主張のテストが複数のファイルにあるときは、そのファイルをすべて targets に入れる。一部だけを走らせた RUN も、vitest の最も新しい RUN として主張の今の結果を決め、走らなかったテストは結果に入らない。テストのプロジェクトがルート直下でなければ `config.project_dir` に書く。
 
 ## 入力の記録
 
@@ -28,6 +30,18 @@ Vite の設定で決まる解決（`resolve.alias`、`import.meta.glob`、プラ
 ## 実行
 
 `vitest run --reporter=json --outputFile=...` を実行し、JSON レポートを証拠として保存する。vitest は project_dir の `node_modules/.bin/vitest`、無ければルートのものを使い、その場所を `tool.extra.path` に残す。
+
+## 設定の項目
+
+`.prepare-dev/config.json` の `plugins.vitest` と、verify run の `--config-json` を合わせたものを使う。ここに挙げた項目だけを受け付け、知らない項目、型の違う値、config.json の知らないプラグイン名があれば、RUN を作らずに誤りを返す。
+
+| 項目 | 型 | 意味 |
+| - | - | - |
+| `project_dir` | 文字列 | Vitest のプロジェクトのディレクトリ（root からのパス）。既定は `.` |
+| `impl_files` | 文字列の配列 | 依存をたどる起点に足す実装のファイル（入力の記録の 1） |
+| `bounds_from` | 文字列 | テストが書く範囲の JSON（root からのパス）。中の数と文字列の値を `scope.bounds` に取り込む |
+| `timeout_ms` | 整数 | Vitest の制限時間（ミリ秒）。既定は 600000 |
+| `env` | 値が文字列のオブジェクト | Vitest に渡す環境変数（`CI=1` はいつも渡す） |
 
 ## 結果の対応
 

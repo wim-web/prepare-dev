@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	goruntime "runtime"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -224,6 +225,23 @@ func (r *Runs) resolveClaims(pluginName string, claims []plugin.ClaimRequest) ([
 	return out, nil
 }
 
+// checkConfig refuses a job before it reserves a run id when .prepare-dev/config.json has
+// settings for a plugin the runtime does not have, or when the plugin's config (config.json
+// merged with the request) has a key the plugin does not declare or a value of another
+// kind (SPEC-0003 V5). A misspelled key would otherwise drop inputs from the record and
+// leave a run applicable after those inputs change.
+func (r *Runs) checkConfig(p Plugin, cfg *core.OMap) error {
+	for _, name := range r.store.Config.Plugins.Keys() {
+		if _, ok := r.plugins[name]; !ok {
+			return core.Errf("invalid", fmt.Sprintf(".prepare-dev/config.json has settings for an unknown plugin %q (plugins: %s)", name, strings.Join(r.order, ", ")))
+		}
+	}
+	if err := plugin.CheckConfig(p.Name(), cfg, p.Capabilities().Config); err != nil {
+		return core.Errf("invalid", err.Error())
+	}
+	return nil
+}
+
 // Start resolves the claims, reserves a run id and runs the plugin in the background.
 // The caller holds the runtime lock.
 func (r *Runs) Start(in StartRunInput) (JobState, error) {
@@ -238,7 +256,6 @@ func (r *Runs) Start(in StartRunInput) (JobState, error) {
 	if err != nil {
 		return JobState{}, err
 	}
-	runID := r.store.AllocateID("run")
 	cfg := core.NewOMap()
 	if pc, ok := r.store.Config.Plugins.Map(p.Name()); ok {
 		cfg = pc.Clone()
@@ -246,6 +263,10 @@ func (r *Runs) Start(in StartRunInput) (JobState, error) {
 	if in.Config != nil {
 		cfg = cfg.Merge(in.Config)
 	}
+	if err := r.checkConfig(p, cfg); err != nil {
+		return JobState{}, err
+	}
+	runID := r.store.AllocateID("run")
 	targets := in.Targets
 	if targets == nil {
 		targets = []string{}
@@ -511,6 +532,20 @@ func (r *Runs) Applicability(run *core.RunRecord) Applicability {
 	return Applicability{Applicable: len(mismatches) == 0, Mismatches: mismatches}
 }
 
+// sortRunViewsDesc puts the newest run first: the run that finished last, and of two
+// runs that finished in the same millisecond, the one with the larger number (SPEC-0003
+// V6). Runs may finish in another order than they started, since they run concurrently.
 func sortRunViewsDesc(v []TraceRun) {
-	sort.SliceStable(v, func(i, j int) bool { return v[i].FinishedAt > v[j].FinishedAt })
+	sort.SliceStable(v, func(i, j int) bool { return newerRun(v[i].FinishedAt, v[i].RunID, v[j].FinishedAt, v[j].RunID) })
+}
+
+// newerRun reports whether run a is newer than run b: it finished later, or in the same
+// millisecond with a larger number (SPEC-0003 V6).
+func newerRun(finA, idA, finB, idB string) bool {
+	if finA != finB {
+		return finA > finB
+	}
+	_, a, _ := core.ParseID(idA)
+	_, b, _ := core.ParseID(idB)
+	return a > b
 }

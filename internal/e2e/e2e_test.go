@@ -23,6 +23,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/wim-web/prepare-dev/internal/plugin"
+	"github.com/wim-web/prepare-dev/internal/plugin/gotest"
+	"github.com/wim-web/prepare-dev/internal/plugin/lean4"
+	"github.com/wim-web/prepare-dev/internal/plugin/vitest"
 	skillcopy "github.com/wim-web/prepare-dev/internal/skills"
 )
 
@@ -386,11 +390,31 @@ func testP2Skills(t *testing.T) {
 	if err != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
 		t.Fatalf("skill is not a real directory: %v", err)
 	}
-	// the guidance of each verification plugin ships in the references of the prepare-verify skill
-	for _, name := range []string{"gotest", "vitest", "lean4"} {
-		data, err := os.ReadFile(filepath.Join(p.root, ".agents", "skills", "prepare-verify", "references", name+".md"))
+	// the guidance of each verification plugin ships in the references of the prepare-verify
+	// skill, names the plugin version whose rules it describes (version --json shows the
+	// versions of this build to compare with), and describes every config key the plugin
+	// declares
+	versions, _ := p.json("version", "--json")["plugins"].(map[string]any)
+	for _, pl := range []plugin.Plugin{gotest.New(), vitest.New(), lean4.New()} {
+		if versions[pl.Name()] != pl.Version() {
+			t.Fatalf("version --json shows %v for plugin %s, not %s", versions[pl.Name()], pl.Name(), pl.Version())
+		}
+		data, err := os.ReadFile(filepath.Join(p.root, ".agents", "skills", "prepare-verify", "references", pl.Name()+".md"))
 		if err != nil || !strings.Contains(string(data), "native") {
-			t.Fatalf("the %s guidance is not in the prepare-verify skill: %v", name, err)
+			t.Fatalf("the %s guidance is not in the prepare-verify skill: %v", pl.Name(), err)
+		}
+		head, _, _ := strings.Cut(string(data), "\n## ")
+		if want := "プラグインの版: " + pl.Name() + " " + pl.Version() + "。"; !strings.Contains(head, want) {
+			t.Fatalf("the %s guidance does not name %q before its first section", pl.Name(), want)
+		}
+		keys := pl.Capabilities().Config
+		if len(keys) == 0 {
+			t.Fatalf("plugin %s declares no config keys", pl.Name())
+		}
+		for k := range keys {
+			if !strings.Contains(string(data), "`"+k+"`") {
+				t.Fatalf("the %s guidance does not describe the config key %s", pl.Name(), k)
+			}
 		}
 	}
 	for _, f := range []string{".mcp.json", filepath.Join(".codex", "config.toml")} {
@@ -405,6 +429,23 @@ func testP2Skills(t *testing.T) {
 	if len(second["copied"].([]any)) != 0 || len(second["conflicts"].([]any)) != 0 || len(second["unchanged"].([]any)) != 14 {
 		t.Fatalf("second init: %v", second)
 	}
+	// status names the skills init installed that differ from this build
+	statusSkills := func() map[string]any {
+		sk, _ := p.json("status", "--json")["skills"].(map[string]any)
+		return sk
+	}
+	has := func(list any, key string) bool {
+		l, _ := list.([]any)
+		for _, x := range l {
+			if x == key {
+				return true
+			}
+		}
+		return false
+	}
+	if sk := statusSkills(); sk != nil {
+		t.Fatalf("status reports skills that match this build: %v", sk)
+	}
 	if err := os.WriteFile(skill, []byte("edited by the user\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -414,6 +455,9 @@ func testP2Skills(t *testing.T) {
 	}
 	if data, _ := os.ReadFile(skill); string(data) != "edited by the user\n" {
 		t.Fatalf("user edit overwritten")
+	}
+	if sk := statusSkills(); !has(sk["leave"], ".agents/skills/prepare-dev") || has(sk["update"], ".agents/skills/prepare-dev") {
+		t.Fatalf("status should name the edited skill among those init leaves: %v", sk)
 	}
 
 	// a skill an older version installed and nobody edited since is updated: make the
@@ -431,12 +475,18 @@ func testP2Skills(t *testing.T) {
 	if err := os.WriteFile(manifestPath, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if sk := statusSkills(); !has(sk["update"], ".agents/skills/prepare-dev") || has(sk["leave"], ".agents/skills/prepare-dev") {
+		t.Fatalf("status should name the skill an older version installed among those init updates: %v", sk)
+	}
 	fourth := p.json("init")["skills"].(map[string]any)
 	if len(fourth["updated"].([]any)) != 1 || len(fourth["conflicts"].([]any)) != 0 {
 		t.Fatalf("unedited old skill should be updated: %v", fourth)
 	}
 	if data, _ := os.ReadFile(skill); string(data) == "edited by the user\n" {
 		t.Fatalf("skill not updated")
+	}
+	if sk := statusSkills(); sk != nil {
+		t.Fatalf("status reports skills after init updated them: %v", sk)
 	}
 
 	// an edited skill is replaced only on request, after a backup
@@ -454,6 +504,78 @@ func testP2Skills(t *testing.T) {
 	}
 	if data, _ := os.ReadFile(skill); string(data) == "edited again\n" {
 		t.Fatalf("skill not replaced")
+	}
+
+	// a skill of this build that is not installed (removed, or added by a newer build) is
+	// named, and init copies it
+	if err := os.RemoveAll(filepath.Join(p.root, ".claude", "skills", "prepare-design")); err != nil {
+		t.Fatal(err)
+	}
+	if sk := statusSkills(); !has(sk["copy"], ".claude/skills/prepare-design") {
+		t.Fatalf("status should name the missing skill among those init copies: %v", sk)
+	}
+	if sixth := p.json("init")["skills"].(map[string]any); len(sixth["copied"].([]any)) != 1 {
+		t.Fatalf("init should copy the missing skill: %v", sixth)
+	}
+	if sk := statusSkills(); sk != nil {
+		t.Fatalf("status reports skills after init copied them: %v", sk)
+	}
+
+	// a skill replaced by a symlink is one init leaves as it is, not one it would copy
+	link := filepath.Join(p.root, ".claude", "skills", "prepare-design")
+	if err := os.RemoveAll(link); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(p.root, ".agents", "skills", "prepare-design"), link); err != nil {
+		t.Fatal(err)
+	}
+	if sk := statusSkills(); !has(sk["manual"], ".claude/skills/prepare-design") || has(sk["leave"], ".claude/skills/prepare-design") || has(sk["copy"], ".claude/skills/prepare-design") {
+		t.Fatalf("status should name the symlinked skill among those even --replace-skills leaves: %v", sk)
+	}
+	// so is a file where a skill directory goes, and init --replace-skills leaves both
+	file := filepath.Join(p.root, ".claude", "skills", "prepare-review")
+	if err := os.RemoveAll(file); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(file, []byte("not a skill\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if sk := statusSkills(); !has(sk["manual"], ".claude/skills/prepare-review") || has(sk["leave"], ".claude/skills/prepare-review") {
+		t.Fatalf("status should name the file among those even --replace-skills leaves: %v", sk)
+	}
+	if out := p.ok("status"); !strings.Contains(out, "fix them by hand") || strings.Contains(out, "backs them up") {
+		t.Fatalf("status text for skills init cannot replace: %s", out)
+	}
+	seventh := p.json("init", "--replace-skills")["skills"].(map[string]any)
+	left := func(name string) bool {
+		for _, x := range seventh["conflicts"].([]any) {
+			if s, _ := x.(string); strings.HasSuffix(s, string(filepath.Separator)+filepath.Join(".claude", "skills", name)) {
+				return true
+			}
+		}
+		return false
+	}
+	if !left("prepare-review") || !left("prepare-design") || len(seventh["replaced"].([]any)) != 0 {
+		t.Fatalf("init --replace-skills replaced a symlink or a file: %v", seventh)
+	}
+	if st, err := os.Lstat(link); err != nil || st.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("init --replace-skills changed the symlink: %v", err)
+	}
+	if data, _ := os.ReadFile(file); string(data) != "not a skill\n" {
+		t.Fatalf("init --replace-skills changed the file")
+	}
+	// init --skills-dir names the destinations init keeps up to date: status stops
+	// comparing the one left out, and init --no-skills does not change them
+	p.json("init", "--skills-dir", filepath.Join(".agents", "skills"))
+	if sk := statusSkills(); sk != nil {
+		t.Fatalf("status still compares a destination init no longer uses: %v", sk)
+	}
+	if err := os.RemoveAll(filepath.Join(p.root, ".agents", "skills", "prepare-design")); err != nil {
+		t.Fatal(err)
+	}
+	p.json("init", "--no-skills")
+	if sk := statusSkills(); !has(sk["copy"], ".agents/skills/prepare-design") || len(sk["manual"].([]any)) != 0 {
+		t.Fatalf("status after init --no-skills: %v", sk)
 	}
 }
 

@@ -1,5 +1,7 @@
 # lean4 プラグイン: 主張の書き方
 
+プラグインの版: lean4 0.3.0。この版の規則を書く。`prepare-dev version --json` の `plugins.lean4` がこれと違えば、この写しは実行ファイルより古いので、`prepare-dev init` で skills を更新する。
+
 対象は Lake プロジェクト（`.prepare-dev/config.json` の `plugins.lean4.project_dir`）。証拠の種類は `proof`。
 
 ## spec の native 参照
@@ -21,6 +23,17 @@ claims:
 2. 入力ファイルを `sorry` / `admit` / `axiom` / `native_decide` / `implemented_by` について走査する。
 3. `lake build <modules>` を実行する。
 4. 各定理について `#check @<thm>` と `#print axioms <thm>` を `lake env lean --json` で実行し、仮定を含む完全な命題と公理一覧を記録する。
+
+## 設定の項目
+
+`.prepare-dev/config.json` の `plugins.lean4` と、verify run の `--config-json` を合わせたものを使う。ここに挙げた項目だけを受け付け、知らない項目、型の違う値、config.json の知らないプラグイン名があれば、RUN を作らずに誤りを返す。
+
+| 項目 | 型 | 意味 |
+| - | - | - |
+| `project_dir` | 文字列 | Lake プロジェクトのディレクトリ（root からのパス）。必須 |
+| `allowed_axioms` | 文字列の配列 | 許可する公理。既定は propext、Classical.choice、Quot.sound |
+| `build_targets` | 文字列の配列 | `lake build` に渡すモジュール。既定は targets のファイルから求めたモジュール |
+| `timeout_ms` | 整数 | `lake build` などの制限時間（ミリ秒）。既定は 600000 |
 
 ## 結果の対応
 

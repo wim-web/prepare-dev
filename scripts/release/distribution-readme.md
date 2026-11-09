@@ -39,6 +39,6 @@ Lean 4（`lean4`）、Vitest（`vitest`）、Go のテスト（`gotest`）の接
 
 ## 更新と停止
 
-別の版の実行ファイルで動いているデーモンには接続せず、その版と pid を表示します。版を上げたら `prepare-dev stop` で止めてから使ってください。応答しないデーモンは、表示される pid のプロセスを止めてください。判断画面と API は 127.0.0.1 でだけ配信します。
+別の版の実行ファイルで動いているデーモンには接続せず、その版と pid を表示します。版を上げたら `prepare-dev stop` で止め、実行ファイルを入れ替えてから `prepare-dev init` を実行し直してください。skills と、検証プラグインごとの主張の書き方（prepare-verify の skill の `references/`）が新しい版になります。編集した skill は残し、`prepare-dev status` が示します。検証プラグインの版（`prepare-dev version --json` の `plugins`）が変わった版では、前の版で取った検証の結果は今の版に当てはまらなくなるので、実装を変えていなくても `prepare-dev verify run` をやり直してください（0.3.0 では三つとも変わります）。`.prepare-dev/config.json` の `plugins` に、入れた実行ファイルが持たないプラグインの名前があると、どの検証も始まらないので外してください。0.2.0 の skills は `prepare-dev guidance` を実行するよう書いていますが、0.3.0 にこのコマンドはありません。応答しないデーモンは、表示される pid のプロセスを止めてください。判断画面と API は 127.0.0.1 でだけ配信します。
 
 同梱ライブラリのライセンスは `THIRD_PARTY_NOTICES.txt`、EGM 由来資料のライセンスと出典は `skills/prepare-review/references/egm/` にあります。

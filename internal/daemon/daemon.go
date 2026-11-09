@@ -25,7 +25,7 @@ import (
 )
 
 // Version is the tool version; release builds set it with -ldflags.
-var Version = "0.2.0-dev"
+var Version = "0.3.0-dev"
 
 // Info is the content of .prepare-dev/daemon.json.
 type Info struct {

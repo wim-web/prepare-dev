@@ -29,6 +29,9 @@ type config struct {
 	timeout      time.Duration
 }
 
+// configKeys are the keys cfg reads; the runtime refuses any other.
+var configKeys = map[string]string{"project_dir": "string", "allowed_axioms": "strings", "build_targets": "strings", "timeout_ms": "int"}
+
 func cfg(job *plugin.Job) (config, error) {
 	c := config{projectDir: plugin.ConfigString(job.Config, "project_dir", "")}
 	if c.projectDir == "" {
@@ -86,10 +89,10 @@ type Plugin struct{}
 func New() *Plugin { return &Plugin{} }
 
 func (p *Plugin) Name() string    { return "lean4" }
-func (p *Plugin) Version() string { return "0.2.0" }
+func (p *Plugin) Version() string { return "0.3.0" }
 
 func (p *Plugin) Capabilities() plugin.Capabilities {
-	return plugin.Capabilities{Languages: []string{"lean4"}, Methods: []string{"proof"}, Properties: []string{"invariant", "theorem"}, Tools: []string{"lean", "lake"}}
+	return plugin.Capabilities{Languages: []string{"lean4"}, Methods: []string{"proof"}, Properties: []string{"invariant", "theorem"}, Tools: []string{"lean", "lake"}, Config: configKeys}
 }
 
 // Detect runs lean and lake in the project_dir, where elan picks the toolchain of its

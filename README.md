@@ -10,7 +10,7 @@
 | - | - |
 | `cmd/prepare-dev`、`internal/` | 本体（デーモン、CLI、HTTP API、検証プラグイン） |
 | `ui/` | 判断画面（React）。ビルド結果を Git に入れて埋め込む（[ui/README.md](ui/README.md)） |
-| `skills/` | エージェント向け skills の正本。検証プラグインの書き方は prepare-verify の `references/` にある |
+| `skills/` | エージェント向け skills の正本。検証プラグインごとの主張の書き方は prepare-verify の `references/` にある |
 | `model/` | 回答の適用と回復の Lean 4 モデルと証明、適合テストの操作列 |
 | `scripts/release` | 配布物（macOS・Linux の tar.gz）の作成と、同梱する README の元 |
 | `prepare/` | このプロジェクト自身の記録 |
