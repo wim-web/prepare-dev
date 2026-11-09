@@ -33,7 +33,7 @@ EGM の設計書テンプレート（この SKILL.md から相対パス `../prep
 2. 複数案がある決定ごとに、最大三つの案を仕組み・利点・欠点・破綻条件つきで比べ、推奨と理由を書く。既存コードの再利用を先に探す。
 3. `record_put` で `DES-*` を書く。frontmatter: `alternatives`（`key`、`title`、`status`、`reason`）、`chosen`、`tradeoffs`、`new_decisions`、`coverage`、`links.derived_from`（`REQ-*`）。前段の質問が未回答なら、推奨案を前提にして進め、その前提を「未決事項」に書く。
 4. **前段との照合**（`prepare-dev` の共通規則）: `DIS-*`、`REQ-*`、`DEC-*` を読み直し、矛盾、新しい決定、棄却案の引き継ぎを「前段との照合」の節に書く。矛盾は自分で直さず質問にする。
-5. `prepare-review` で zoom_out → comprehension → design_critique の順にレビューし、指摘を処理する。
+5. `prepare-review` で zoom_out → comprehension → design_critique の順にレビューし、指摘を処理する。確定した `DES-*` を変えるときは、`prepare-review` の「レビューを回す場面」に従う（決まりを変えない修正には回さない）。
 6. 判断が要る決定を、決定ごとに `question_create` する（同時に複数作ってよい）。`subjects` は `DES-*` と関係する `REQ-*`。選択肢は案の `key`、推奨に `reason`。作ったあとは回答まで `DES-*` を変えないので、レビューの修正を済ませてから作る。
 7. 回答を `question_apply` で `DEC-*` にし、`DES-*` の `alternatives[].status` と `chosen` を更新してから `SPEC-*` へ進む。回答を待たずに進むなら、推奨案を前提にした `SPEC-*` であることを `SPEC-*` の `assumptions` に書く。
 
@@ -42,6 +42,6 @@ EGM の設計書テンプレート（この SKILL.md から相対パス `../prep
 - 複数案のある決定がすべて、案の比較と人の判断（`DEC-*`）か、質問の登録のどちらかになっている。
 - `new_decisions` が空か、各項目が報告済みである。
 - 検証計画が、どの要求をどの手段で確かめるかを述べている。
-- レビューの blocker が未対処で残っていない（`status` の `open_findings`）。
+- レビューの blocker が未対処で残っていない（`status` の `open_findings`。`prepare-review` の手順 5 で一覧に残した、今回変えていない箇所への指摘は除く）。
 
 設計レビューで指摘に対応したあと、もう一度「そもそも必要か、やりすぎていないか」（zoom_out）を見る。細部を直すうちに全体が膨らむことが多い。

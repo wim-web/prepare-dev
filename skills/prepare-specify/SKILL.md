@@ -33,7 +33,7 @@ description: Use after design to turn requirements into checkable claims (contra
 4. 状態機械や不変条件は本文に明示する。表や箇条書きでよい。RUN にできない確認（配布物を別の場所で動かす、ブラウザで操作する、実機で試すなど）が要る受入条件は、手の確認として本文に書く。確認ごとに、何を確かめるかと、やり直しの条件（どの場所を変えたら、その確認をやり直すか）を書く。やり直しの条件は仕様か `DES-*` に書き、仕様から指す（`DES-*` に書けば、条件を直しても仕様の版は進まず、RUN は当てはまり続ける）。
 5. `record_put` で `SPEC-*` を書く。frontmatter: `claims`（`id`、`statement`、`requirement`、`native: [{plugin, ref}]`）、`assumptions`、`out_of_scope`、`links.specifies`（`REQ-*`）。
 6. **前段との照合**: `DES-*` の検証計画と `REQ-*` の受入条件をすべて主張が覆っているか、`DEC-*` に反する主張がないかを確認し、本文に書く。主張を書くうちに設計の欠陥（設計どおりに作ると主張が偽になる、設計の前提が誤っている）を見つけたら、`DES-*` は直さない（未回答の質問の対象なら回答が `stale` になる）。推奨する直し方を前提にして `SPEC-*` を書き、その前提を `assumptions` に、`DES-*` に書き戻す内容を本文の「`DES-*` に反映すべき事項」に残し、直し方を候補つきの質問にする。設計の場合分けをそのまま主張に写すと、設計の誤った前提も主張に写る。並行性や中断が関わる手順は、場合分けのテストに加えて状態の探索で確かめられないかを検討する。
-7. `prepare-review` で comprehension、design_critique、implementation_readiness のレビューを受け、指摘を処理する。
+7. `prepare-review` で comprehension、design_critique、implementation_readiness のレビューを受け、指摘を処理する。確定した `SPEC-*` を変えるときは、`prepare-review` の「レビューを回す場面」に従う（決まりを変えない修正には回さない）。
 8. 判断が要る項目（証明とテストのどちらにするか、検査の境界、対象外にする条件）を、独立した判断ごとに `question_create` する。作ったあとは回答まで `SPEC-*` を変えない。
 
 ## 終了条件

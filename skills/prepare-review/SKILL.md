@@ -1,6 +1,6 @@
 ---
 name: prepare-review
-description: Use to review a DIS/REQ/DES/SPEC record with fresh-context reviewers (no conversation history) using the EGM personas and standards, record findings as a REV record through prepare-dev, and handle them without hiding unaddressed items. Use at the end of each stage and whenever a later stage sends work back.
+description: Use to review a DIS/REQ/DES/SPEC record with fresh-context reviewers (no conversation history) using the EGM personas and standards, record findings as a REV record through prepare-dev, and handle them without hiding unaddressed items. Use before a newly written record is accepted, and when a change to an accepted record adds, removes or alters a rule (not for typo fixes, rewording or renames).
 ---
 
 # Review（レビュー）
@@ -10,6 +10,16 @@ description: Use to review a DIS/REQ/DES/SPEC record with fresh-context reviewer
 persona と評価基準は EGM（`references/egm/`、版は `references/egm/ATTRIBUTION.md`）のものを無改変で使う。進め方は EGM と異なり、ここに書いたとおりにする。
 
 この skill の `references/` は、読み込んだ SKILL.md の置き場所から解決する。プロジェクト直下に `skills/` がある前提にしない。レビュー役には解決済みのファイルパスを渡す。
+
+## レビューを回す場面
+
+対象が確定しているか（`status: accepted`）と、修正が決まりを変えるかで決める。後の工程から前の記録へ戻って直すときも同じ。
+
+| 場面 | レビュー |
+| - | - |
+| 新しく書いた記録を、人が確定するまで | 「段階」と「手順」のとおりに回す |
+| 確定した記録の、決まりを変えない修正（誤字を直す、言い換える、ファイルの場所や名前を置き換える） | 回さない。検証（`RUN-*`）と手の確認だけで合否を決め、変えた箇所を人への報告に示す |
+| 確定した記録の、決まりを変える修正（決まりを足す、消す、中身を変える。例: 「パスワードは 2 桁」を「3 桁と記号」に変える） | 「確定した記録の決まりを変えたとき」のとおりに、変えた決まりとそれに関わる箇所だけを見せる |
 
 ## 役割
 
@@ -45,14 +55,31 @@ persona と評価基準は EGM（`references/egm/`、版は `references/egm/ATTR
 3. **指摘を記録する**: レビュー役の報告を `REV-*` として `record_put` する。frontmatter: `stage`、`subjects`（レビュー対象の版）、`inputs`（bundle の `inputs` 全部）、`reviewer`（`persona`、`persona_version` は `egm@<commit>`、`host`、`context: fresh`）、`paraphrase`（comprehension のとき）、`findings`。各 finding は `id`（`REV-*` の中で一意。`f1`、`f2`、…。他の記録から参照するときは `REV-xxxx/f1`）、`severity`、`scope`、`summary`、`rationale`、`proposed`。`actual` は `unaddressed` のまま。本文にレビュー役の報告を貼る。CLI では `findings` を JSON ファイルに書いて `--fm-file` で渡し、`actual` の更新も同じファイルを直して `record put` する（`findings` は配列ごと置き換わる）。
 4. **言い直しを照合する**（comprehension）: `paraphrase` を自分の意図と比べる。違っていれば、それ自体を finding にする（資料の書き方の問題）。
 5. **指摘を処理する**: 指摘ごとに提案（`proposed`）を決め、実際に行ったことを `actual` と `actual_ref` に記録する。
-   - `fix`: 対象の記録を直す。直したら `actual: fixed`、`actual_ref` に直した記録の版。
+   - `fix`: 対象の記録を直す。新しい決まりや仕組みを足さずに直せるときだけ選ぶ。直したら `actual: fixed`、`actual_ref` に直した記録の版。
    - `contest`: 指摘が誤りだと主張する。レビュー役が読める根拠（記録の該当箇所、コード）を示す。反論は人が認めてはじめて `contested_accepted` になる。それまでは未対処。
    - `escalate`: 根拠が資料の外（口頭の決定、慣習）にある。人への質問（`question_create`）にし、`actual: escalated`、`actual_ref` に `Q-*`。回答で `DEC-*` ができたら `actual_ref` を更新する。
    - `decline`: Nit で直さない。`actual: declined`。
    - リスクを受容するなら、人の判断として `DEC-*` に残し、`actual: accepted_risk`、`actual_ref` に `DEC-*`。
+
+   直すのに新しい決まりや仕組み（記録に無かった条件、主張、手順、検査など）を足す必要がある指摘は、その場で足さない。`proposed: escalate` にし、その段階のほかの指摘を処理し終えてから、足すものごとに質問を作って、まとめて人に聞く。選択肢は「今やる」「別の作業にする」「直さない」。回答が `DEC-*` になったら、「今やる」は足して直す（`fixed`）。「別の作業にする」は `escalated` のまま `actual_ref` を `DEC-*` にし、人への報告に書く。「直さない」は `accepted_risk` にする。
+
+   今回の作業で書いても変えてもいない箇所への指摘は、直さず一覧に残す。`proposed: escalate`、`proposed_note` に「今回変えていない箇所。人がやると決めるまで直さない」と書き、`actual` は `unaddressed` のままにする。`status` の `open_findings` が、その一覧になる。頼まれた作業を先に終え、残した指摘を人への報告に書く。
+
    提案は完了ではない。`REV-*` の `status` を `resolved` にしても、`actual: unaddressed` の finding は `status` の `open_findings` に残る。
 6. **再確認する**: Blocker か Major を `fix` したら、同じ段階を `REVIEW` mode でもう一度行う。再確認には、その指摘を出した persona だけを使ってよい。settled（`contested_accepted`、`accepted_risk`、`declined`）の指摘は、対象と根拠が変わっていない範囲では再開しない。関連する記録の版が変わったら再確認する。`fixed` は settled ではなく、次のレビューで同じ箇所に指摘が出れば再開する。
-7. **収束と上限**: 段階は次の両方を満たしたら収束。(1) その段階のすべての `REV-*` で Blocker と Major が未対処でない（`fixed`、`escalated`、`contested_accepted`、`accepted_risk` のいずれか）。(2) 直近の `REVIEW` round が、直した箇所に新しい Blocker と Major を出していない。`BRAINSTORM` round が毎回新しい Major を出すのは persona の性質なので、BRAINSTORM は段階ごとに一回にし、その結果で収束を判定しない。round の上限は段階ごとに四回（BRAINSTORM 一回と REVIEW 三回）。上限に達したら、未対処を一覧にして人に聞く（受容して進む、続ける、前の工程へ戻る）。上限到達を受容と読み替えない。費用の目安: persona 一つの round が十五万〜二十五万 token（具体例の実測）なので、再確認は persona を絞る。費用を理由に上限の手前で止めるときも、それは人が決めることなので、上限に達したときと同じく人に聞く（自分で置いた予算を規則のように扱わない）。
+7. **収束と上限**: 段階は次の両方を満たしたら収束。(1) その段階のすべての `REV-*` で Blocker と Major が未対処でない（`fixed`、`escalated`、`contested_accepted`、`accepted_risk` のいずれか）。手順 5 で一覧に残した指摘（今回変えていない箇所への指摘）は、この条件に数えない。(2) 直近の `REVIEW` round が、直した箇所に新しい Blocker と Major を出していない。`BRAINSTORM` round が毎回新しい Major を出すのは persona の性質なので、BRAINSTORM は段階ごとに一回にし、その結果で収束を判定しない。round の上限は段階ごとに四回（BRAINSTORM 一回と REVIEW 三回）。上限に達したら、未対処を一覧にして人に聞く（受容して進む、続ける、前の工程へ戻る）。上限到達を受容と読み替えない。費用の目安: persona 一つの round が十五万〜二十五万 token（具体例の実測）なので、再確認は persona を絞る。費用を理由に上限の手前で止めるときも、それは人が決めることなので、上限に達したときと同じく人に聞く（自分で置いた予算を規則のように扱わない）。
+
+## 確定した記録の決まりを変えたとき
+
+「手順」を次のように変えて行う。ここに書いていないことは「手順」と同じ。
+
+1. **見せるもの**: `review_bundle` で記録の全文を束ねない。次の三つを一つのファイルにまとめ（置き場所は `review_bundle` の出力と同じ `.prepare-dev/reviews/`）、bundle のパスの代わりに渡す。`REV-*` の `inputs` には、抜粋を取った記録の id と版（`record_get` の `rev` と `sha256`）を書く。
+   - 頼まれたこと。人の言葉のまま書く（照らす先として渡す。手順 2 の「会話の内容は渡さない」の例外はこれだけ）。
+   - 変えた決まりの、前と後。
+   - それに関わる箇所の抜粋（変えた決まりを使っている決まりと、同じことを決めている決まり）。記録の id と版を付ける。
+2. **レビュー役**: persona は `agents/design_critic.md` 一つ。評価基準は渡さない。mode は `REVIEW`、`stage` は `design_critique`。`{focus_note}` には「見る範囲は、このファイルにある変えた決まりと、それに関わる箇所。見ることは、変えた決まりが頼まれたことに合うかと、ほかの決まりと食い違わないか」と書く。
+3. **回数**: Blocker か Major を直したら、同じ役で一度だけ確かめ直す。確かめ直した後も Blocker か Major が未対処で残るときは、それ以上回さず、一覧にして人に聞く（手順 7 の、上限に達したときと同じ）。
+4. **確定し直す**: 指摘を処理し終えたら、変えた決まりの前と後を示して `question_create` する（`subjects` は変えた記録）。人が確定し、回答が `DEC-*` になる。
 
 ## 規則
 

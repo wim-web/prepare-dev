@@ -32,8 +32,8 @@ Report in Japanese, in this order:
 
 - `{persona_path}`: この wrapper ファイルから `../egm/agents/<name>.md` を解決したパス
 - `{standard_path}`: この wrapper ファイルから `../egm/document_standards/<name>.md` を解決したパス
-- `{bundle_path}`: `review_bundle` が返した `path`
-- `{mode}`: 各段階の最初の round は `BRAINSTORM`、直したあとの再確認は `REVIEW`。comprehension は常に `REVIEW`
-- `{focus_note}`: 段階ごとの注記（`REQ-*` の design_critique の高さ、再確認で変わった箇所）。結論や自分の意図は書かない
+- `{bundle_path}`: `review_bundle` が返した `path`。確定した記録の決まりを変えたときは、まとめたファイルのパス
+- `{mode}`: 各段階の最初の round は `BRAINSTORM`、直したあとの再確認は `REVIEW`。comprehension は常に `REVIEW`。確定した記録の決まりを変えたときは、どちらの round も `REVIEW`
+- `{focus_note}`: 段階ごとの注記（`REQ-*` の design_critique の高さ、再確認で変わった箇所、確定した記録の決まりを変えたときの見る範囲）。結論や自分の意図は書かない
 
 受け取った報告の JSON を `REV-*` の `findings` に変換する。`id` は `REV-*` の中で一意（`f1`、`f2`、…）、`proposed` は進める側が決め、`actual` は `unaddressed` から始める。

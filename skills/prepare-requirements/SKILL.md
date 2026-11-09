@@ -38,7 +38,7 @@ description: Use after discovery to turn the problem into requirements with rati
 2. シナリオを Given / When / Then で書き、例外シナリオを通常と同じ数だけ検討する。中断と再試行のシナリオは必ず含める。
 3. 用語、データ、状態、規則を整理し、矛盾する要求を見つけたら候補と推奨を作る。
 4. `record_put` で `REQ-*` を要求ごとに作る。frontmatter: `priority`、`acceptance`（`AC-n` の一覧）、`coverage`、`links.derived_from`（`DIS-*`）。本文: 要求、根拠、受入条件、対象外。終了条件を満たしたら `status: proposed`。
-5. `prepare-review` で comprehension と design_critique のレビューを受け、指摘を処理する。
+5. `prepare-review` で comprehension と design_critique のレビューを受け、指摘を処理する。確定した `REQ-*` を変えるときは、`prepare-review` の「レビューを回す場面」に従う（決まりを変えない修正には回さない）。
 6. 人の判断が要る項目を、独立した判断ごとに `question_create` する（同時に複数作ってよい）。`subjects` は関係する `REQ-*`（複数可）。典型的には: 優先順位、相反する要求のトレードオフ、品質要求の目標値、対象外にする範囲。作ったあとは回答まで対象の `REQ-*` を変えない。
 7. 回答を `question_apply` で `DEC-*` にし、`REQ-*` の `priority` や `coverage` を更新する。
 
