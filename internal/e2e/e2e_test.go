@@ -386,6 +386,13 @@ func testP2Skills(t *testing.T) {
 	if err != nil || !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
 		t.Fatalf("skill is not a real directory: %v", err)
 	}
+	// the guidance of each verification plugin ships in the references of the prepare-verify skill
+	for _, name := range []string{"gotest", "vitest", "lean4"} {
+		data, err := os.ReadFile(filepath.Join(p.root, ".agents", "skills", "prepare-verify", "references", name+".md"))
+		if err != nil || !strings.Contains(string(data), "native") {
+			t.Fatalf("the %s guidance is not in the prepare-verify skill: %v", name, err)
+		}
+	}
 	for _, f := range []string{".mcp.json", filepath.Join(".codex", "config.toml")} {
 		if _, err := os.Stat(filepath.Join(p.root, f)); err == nil {
 			t.Fatalf("init wrote %s", f)
@@ -630,9 +637,6 @@ func testP1Lean(t *testing.T) {
 	p.write("model/lean-toolchain", string(toolchain))
 	p.write("model/lakefile.toml", "name = \"reservation_model\"\ndefaultTargets = [\"Reservation\"]\n[[lean_lib]]\nname = \"Reservation\"\n")
 	p.write("model/Reservation.lean", "namespace Reservation\ndef accepted (requested capacity : Nat) := min requested capacity\ntheorem bounded (requested capacity : Nat) : accepted requested capacity ≤ capacity := Nat.min_le_right _ _\nend Reservation\n")
-	if out := p.ok("guidance", "lean4"); !strings.Contains(out, "#print axioms") {
-		t.Fatal("guidance lean4")
-	}
 	res := p.json("verify", "run", "--plugin", "lean4", "--claim", "SPEC-0001/C1", "--target", "model/Reservation.lean", "--config-json", `{"project_dir":"model"}`, "--wait", "--timeout", "600000")
 	rec, _ := res["record"].(map[string]any)
 	app, _ := res["applicability"].(map[string]any)

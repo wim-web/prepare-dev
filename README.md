@@ -1,8 +1,8 @@
 # prepare-dev
 
-曖昧なプロダクトの意図から、要求・設計・検査可能な仕様・実装・検証結果までを、プロジェクトの記録（`prepare/`）につなぐための CLI と skills。エージェント（Codex、Claude Code）が skills から CLI を使い、人は判断画面で回答する。本体は Go の実行ファイル一つで、判断画面・skills・検証プラグインの案内を埋め込む。
+曖昧なプロダクトの意図から、要求・設計・検査可能な仕様・実装・検証結果までを、プロジェクトの記録（`prepare/`）につなぐための CLI と skills。エージェント（Codex、Claude Code）が skills から CLI を使い、人は判断画面で回答する。本体は Go の実行ファイル一つで、判断画面と skills を埋め込む。
 
-使い方は [配布版の README](docs/distribution-readme.md)、構成と設計の理由は [DES-0004](prepare/designs/DES-0004.md)。このプロジェクト自身の要求・仕様・判断・検証結果は `prepare/` にある。
+使い方は [配布版の README](scripts/release/distribution-readme.md)、構成と設計の理由は [DES-0004](prepare/designs/DES-0004.md)。このプロジェクト自身の要求・仕様・判断・検証結果は `prepare/` にある。
 
 ## 構成
 
@@ -10,10 +10,11 @@
 | - | - |
 | `cmd/prepare-dev`、`internal/` | 本体（デーモン、CLI、HTTP API、検証プラグイン） |
 | `ui/` | 判断画面（React）。ビルド結果を Git に入れて埋め込む（[ui/README.md](ui/README.md)） |
-| `skills/`、`guidance/` | エージェント向け skills の正本と、検証プラグインの書き方 |
+| `skills/` | エージェント向け skills の正本。検証プラグインの書き方は prepare-verify の `references/` にある |
 | `model/` | 回答の適用と回復の Lean 4 モデルと証明、適合テストの操作列 |
-| `scripts/release` | 配布物（macOS・Linux の tar.gz）の作成 |
+| `scripts/release` | 配布物（macOS・Linux の tar.gz）の作成と、同梱する README の元 |
 | `prepare/` | このプロジェクト自身の記録 |
+| `docs/` | 構想の段階で参照した資料の一覧（記録ではない） |
 
 ## 開発
 

@@ -31,7 +31,7 @@ prepare-dev stop
 
 ## 検証
 
-Lean 4（`lean4`）、Vitest（`vitest`）、Go のテスト（`gotest`）の接続処理を同梱しています。検証器そのものは別に導入してください。仕様の書き方と設定は `prepare-dev guidance lean4`（`vitest`、`gotest`）が表示します。デーモンは起動した CLI の PATH で検証器を探すので、検証器を入れ替えたら `prepare-dev stop` で止めてから使ってください。
+Lean 4（`lean4`）、Vitest（`vitest`）、Go のテスト（`gotest`）の接続処理を同梱しています。検証器そのものは別に導入してください。仕様の書き方と設定は、init がコピーする prepare-verify の skill の `references/`（`lean4.md`、`vitest.md`、`gotest.md`）にあります。デーモンは起動した CLI の PATH で検証器を探すので、検証器を入れ替えたら `prepare-dev stop` で止めてから使ってください。
 
 ## ブランチと worktree（Branches and worktrees）
 

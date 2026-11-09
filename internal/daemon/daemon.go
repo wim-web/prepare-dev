@@ -56,7 +56,7 @@ var (
 )
 
 // Identity tells which build this process is: the version and the sha256 of the
-// executable. The skills, guidance and UI are embedded, so where the file lies does not
+// executable. The skills and UI are embedded, so where the file lies does not
 // change what it does; the path is shown for diagnosis only.
 func Identity() (core.ToolIdentity, error) {
 	identityOnce.Do(func() {

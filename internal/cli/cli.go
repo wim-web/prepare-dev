@@ -182,7 +182,7 @@ const usage = `prepare-dev — 意図から判断・仕様・検証へ
 prepare-dev init [--root dir] [--no-skills] [--skills-dir dir] [--replace-skills]
 prepare-dev status [--json] [--root dir]
 prepare-dev ui [Q-ID] [--no-open] [--root dir]
-prepare-dev record create --kind requirement|spec|design|discovery|review --title text --body-file file [--fm-file json]
+prepare-dev record create --kind requirement|spec|design|discovery|review|record|proposal --title text --body-file file [--fm-file json]
 prepare-dev record get ID
 prepare-dev record put ID --expected-rev N --expected-sha256 HASH [--body-file file] [--fm-file json]
 prepare-dev record list [--kind kind]
@@ -195,7 +195,6 @@ prepare-dev verify wait|get RUN-ID [--json] | verify list [--json]
 prepare-dev trace ID [--json]
 prepare-dev serve [--detach] | stop
 prepare-dev bundle RECORD-ID... [--stdout]
-prepare-dev guidance lean4|vitest|gotest
 prepare-dev version [--json]
 
 全操作で --root dir を指定できます。省略時は PREPARE_DEV_ROOT または現在のディレクトリ。
@@ -270,15 +269,8 @@ func run(a *args, out io.Writer) error {
 			return printOut(out, "daemon stopped")
 		}
 		return printOut(out, "no daemon running")
-	case "guidance":
-		name := a.pos1(1)
-		data, err := preparedev.Guidance(name)
-		if name == "" || err != nil {
-			return die("guidance lean4|vitest|gotest")
-		}
-		return printOut(out, strings.TrimRight(string(data), "\n"))
 	}
-	return die("usage: prepare-dev serve|init|status|pending|q|record|verify|trace|bundle|ui|stop|guidance|version [--root dir]")
+	return die("usage: prepare-dev serve|init|status|pending|q|record|verify|trace|bundle|ui|stop|version [--root dir]")
 }
 
 func client(a *args) (*daemon.Client, error) {

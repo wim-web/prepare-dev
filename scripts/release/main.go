@@ -29,6 +29,9 @@ import (
 	"github.com/wim-web/prepare-dev/internal/uibuild"
 )
 
+// distributionReadme is the README packed into every archive, relative to the repository root.
+const distributionReadme = "scripts/release/distribution-readme.md"
+
 type artifact struct {
 	OS           string `json:"os"`
 	Arch         string `json:"arch"`
@@ -45,8 +48,8 @@ func main() {
 	if *version == "" {
 		fail("-version is required")
 	}
-	if _, err := os.Stat("docs/distribution-readme.md"); err != nil {
-		fail("docs/distribution-readme.md is missing (run from the repository root)")
+	if _, err := os.Stat(distributionReadme); err != nil {
+		fail("%s is missing (run from the repository root)", distributionReadme)
 	}
 	// the embedded UI must be the build of the current UI sources
 	if err := uibuild.Check("ui"); err != nil {
@@ -56,7 +59,7 @@ func main() {
 	if err != nil {
 		fail("notices: %v", err)
 	}
-	readme, err := os.ReadFile("docs/distribution-readme.md")
+	readme, err := os.ReadFile(distributionReadme)
 	if err != nil {
 		fail("%v", err)
 	}

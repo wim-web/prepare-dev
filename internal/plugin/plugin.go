@@ -88,7 +88,6 @@ type Plugin interface {
 	Name() string
 	Version() string
 	Capabilities() Capabilities
-	Guidance() string
 	// Detect reports whether the tools are installed where the job runs (its project_dir).
 	Detect(job *Job) DetectResult
 	Inputs(job *Job) (Inputs, error)

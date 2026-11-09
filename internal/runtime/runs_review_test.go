@@ -55,7 +55,6 @@ func (p *pausedPlugin) Version() string { return "1" }
 func (p *pausedPlugin) Capabilities() plugin.Capabilities {
 	return plugin.Capabilities{Methods: []string{"test"}}
 }
-func (p *pausedPlugin) Guidance() string                          { return "" }
 func (p *pausedPlugin) Inputs(*plugin.Job) (plugin.Inputs, error) { return plugin.Inputs{}, nil }
 func (p *pausedPlugin) Detect(*plugin.Job) plugin.DetectResult {
 	<-p.gate

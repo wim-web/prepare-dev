@@ -10,7 +10,7 @@ description: Use after a spec is approved to create or update the code, proofs a
 ## 入力
 
 - `SPEC-*`（`record_get` で版を控える）、`DES-*` の実装計画、`DEC-*`。
-- プラグインの書き方: `prepare-dev guidance lean4`、`prepare-dev guidance vitest`、`prepare-dev guidance gotest`。配布物に同梱した文書を読む。対象プロジェクトに prepare-dev のソースを置く必要はない。
+- プラグインの書き方: この skill の `references/` にある `lean4.md`、`vitest.md`、`gotest.md`。読み込んだ SKILL.md の置き場所から解決する（対象プロジェクトに prepare-dev のソースを置く必要はない）。
 
 ## 手順
 
@@ -24,6 +24,7 @@ description: Use after a spec is approved to create or update the code, proofs a
    - `tool_error` / `unsupported`: 検査自体の失敗。環境を直す。
 5. `trace REQ-xxxx` で、要求から主張、証拠までが現在の版に対して `applicable` であることを確認する。
 6. 要求ごとに人に報告する項目をまとめる。証拠があるもの、未解決のもの、保証の範囲。
+7. ツールで自動化していない確認（配布物を別の場所で動かす、ブラウザで操作する、実機で試すなど）を実行したら、`RUN-*` ではなく確認記録（kind `record`、`REC-*`）を `record_put` で作るか更新する。何を、どの版で、どの環境で確かめたか、確かめていないことを書き、関係する `SPEC-*`・`REQ-*` の `links`（`related_to`）からつなぐ。確認記録は証拠ではないので、主張の `result` は変わらない。
 
 ## 二つのループを分ける
 
@@ -41,3 +42,4 @@ description: Use after a spec is approved to create or update the code, proofs a
 - `SPEC-*` のすべての主張に、現在の版に対して `applicable` な `RUN-*` がある。
 - `verified` でない主張は、未解決として報告され、戻る先が決まっている。
 - 証拠の `assumptions` と `scope` が仕様の `assumptions` と矛盾していない。
+- 仕様が人の確認を求める項目には、現在の版を確かめた確認記録（`REC-*`）がある。

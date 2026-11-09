@@ -16,7 +16,6 @@ import (
 
 	"github.com/evanw/esbuild/pkg/api"
 
-	preparedev "github.com/wim-web/prepare-dev"
 	"github.com/wim-web/prepare-dev/internal/core"
 	"github.com/wim-web/prepare-dev/internal/plugin"
 )
@@ -177,11 +176,6 @@ func (p *Plugin) Version() string { return "0.3.0" }
 
 func (p *Plugin) Capabilities() plugin.Capabilities {
 	return plugin.Capabilities{Languages: []string{"typescript", "javascript"}, Methods: []string{"test"}, Properties: []string{"example", "property", "conformance"}, Tools: []string{"vitest"}}
-}
-
-func (p *Plugin) Guidance() string {
-	data, _ := preparedev.Guidance("vitest")
-	return string(data)
 }
 
 func (p *Plugin) Detect(job *plugin.Job) plugin.DetectResult {

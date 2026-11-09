@@ -20,7 +20,7 @@ skill から `prepare-dev` CLI を実行し、共通の runtime を通して問�
 | 要求 | `REQ-*`（判断は `DEC-*`） | `prepare-requirements` |
 | 設計 | `DES-*`、`DEC-*` | `prepare-design` |
 | 仕様 | `SPEC-*` | `prepare-specify` |
-| 実装と検証 | コード、証明、テスト、`RUN-*` | `prepare-verify` |
+| 実装と検証 | コード、証明、テスト、`RUN-*`、人が確かめたことの確認記録 `REC-*` | `prepare-verify` |
 | レビュー | `REV-*` | `prepare-review`（各工程の終わりと、戻るときに使う） |
 
 3. 一つの依頼ですべての工程を通す必要はない。依頼の性質に合わせて適用範囲を選び、選ばなかった工程と理由を記録に書く。
@@ -30,7 +30,7 @@ skill から `prepare-dev` CLI を実行し、共通の runtime を通して問�
 - **人に聞く前に調べる。** 既存資料とコードを読み、候補、比較、推奨とその理由を先に作る。人に確認するのは、目的、優先順位、価値判断、許容するトレードオフ、調査では得られない事実だけ。質問だけを並べて思考を人に移さない。
 - **判断は工程の終わりに、独立した判断ごとに聞く。** 工程の途中で節ごとに承認を求めない。工程の終わりに、決める必要のある項目を候補付きで `question_create` する。一つの質問は一つの判断（一つの `kind` と一組の `options`）で、回答一つが `DEC-*` 一件になる。独立した判断が三つあれば質問を三つ同時に作る。選択肢の key に接頭辞を付けて複数の判断を一つの質問に詰めない。推奨には `recommended: true` と `reason` を付ける。
 - **観点を空欄のまま完了にしない。** 各工程の観点は `coverage` に `decided` / `hypothesis` / `unverified` / `out_of_scope` のいずれかで記入する。該当しないなら `out_of_scope` と理由を書く。
-- **記録は runtime 経由で書く。** `record_put`（作成は id なし、更新は `record_get` で得た `expected_rev` と `expected_sha256` 付き）。回答に由来する判断は `question_apply` だけが作る。`status` は、書いている途中は `draft`、工程の終了条件を満たして人の判断待ちになったら `proposed`、判断が反映されたら `accepted`、置き換えられたら `superseded`。
+- **記録は runtime 経由で書く。** `record_put`（作成は id なし、更新は `record_get` で得た `expected_rev` と `expected_sha256` 付き）。回答に由来する判断は `question_apply` だけが作る。`status` は、書いている途中は `draft`、工程の終了条件を満たして人の判断待ちになったら `proposed`、判断が反映されたら `accepted`、置き換えられたら `superseded`。人が実行して確かめたこと（確認記録）は kind `record`（`REC-*`）、工程の外で作った案は kind `proposal`（`PRO-*`）にする。工程の記録を runtime の外のファイル（`docs/` など）に書かない。
 - **記録同士は `links` でつなぐ。** `derived_from`（`REQ-*` → `DIS-*`、`DES-*` → `REQ-*`）、`specifies`（`SPEC-*` → `REQ-*`）、`rationale_for`（`DEC-*` → 対象）。`trace` は `links` を両方向にたどる（`links` に返す）ので、質問の id を記録に書き戻す必要はない。質問は `subjects` から引ける。
 - **理由を残す。** 採用した案だけでなく、棄却した案とその理由、判断の根拠を `DEC-*` に書く。前の工程で決まったことを後の工程で黙って変えない（下の「前段の決定との照合」）。
 - **検証を通すために要求を黙って弱めない。** 要求の誤りを見つけたら、その要求を対象にした質問を作り、人の判断を `DEC-*` に残してから直す。
