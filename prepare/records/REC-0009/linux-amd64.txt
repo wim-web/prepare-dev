@@ -1,0 +1,24 @@
+OK   linux-amd64: PATH=/usr/bin:/bin; go, node, npm, pnpm are not on it; uname -m: aarch64
+OK   linux-amd64: version --json: {"version":"0.3.0-dev","build":"bc0f449d9541a429dc7dd39545c5e8475206ec34a9a75eaa7c813b70e386d369","path":"/tmp/prepare-dev","root":"/tmp","mode":"package","plug
+OK   linux-amd64: init
+OK   linux-amd64: init copied 7 skills into .agents/skills and 7 into .claude/skills
+OK   linux-amd64: init wrote no MCP configuration
+OK   linux-amd64: record create: "id": "REQ-0001"
+OK   linux-amd64: q create: "url": "http://127.0.0.1:39963/q/Q-0001"
+OK   linux-amd64: the decision screen is served at http://127.0.0.1:39963/q/Q-0001 (404249 bytes)
+OK   linux-amd64: an answer without Origin is refused: HTTP/1.1 403 Forbidden
+OK   linux-amd64: an answer with the page's Origin is accepted
+OK   linux-amd64: there is no q answer: error: questions are answered in the decision UI (prepare-dev ui Q-0001)
+OK   linux-amd64: q wait: answered
+OK   linux-amd64: q ack ANS-0001-1
+OK   linux-amd64: q apply made DEC-0001
+OK   linux-amd64: trace REQ-0001 shows DEC-0001
+OK   linux-amd64: bundle: "path": ".prepare-dev/reviews/bundle-20261109T205607Z-REQ-0001.md"
+OK   linux-amd64: ui --no-open: http://127.0.0.1:39963
+OK   linux-amd64: a second serve ended on the lease: error: another daemon holds the lease of /tmp/proj (pid 37)
+OK   linux-amd64: status after kill -9 of the daemon (pid 37)
+OK   linux-amd64: a new daemon started (pid 202)
+OK   linux-amd64: the daemon 202 ended within 1900 ms after its lease and daemon.json were removed
+OK   linux-amd64: status after the removal
+OK   linux-amd64: a new daemon started (pid 248)
+RESULT linux-amd64: all passed
