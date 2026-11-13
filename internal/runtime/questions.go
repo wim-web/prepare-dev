@@ -200,6 +200,10 @@ func (qs *Questions) deriveState(q *core.Question) string {
 			return "applied"
 		}
 	}
+	// 回答をすべて閉じてから取り消した質問も、取り消しとして扱う（Cancel）。
+	if q.Cancelled != nil || q.State == "cancelled" {
+		return "cancelled"
+	}
 	if len(q.Answers) > 0 {
 		all := true
 		for _, a := range q.Answers {
@@ -219,9 +223,6 @@ func (qs *Questions) deriveState(q *core.Question) string {
 	}
 	if len(q.Answers) > 0 {
 		return "answered"
-	}
-	if q.State == "cancelled" {
-		return "cancelled"
 	}
 	return "open"
 }
@@ -449,12 +450,17 @@ func (qs *Questions) Cancel(questionID, reason string, replacedBy *string) (*cor
 	if q.Cancelled != nil {
 		return q, nil
 	}
-	if len(q.Answers) > 0 {
-		ids := make([]any, len(q.Answers))
-		for i, a := range q.Answers {
-			ids[i] = a.AnswerID
+	// 回答があっても、すべて閉じてあれば取り消せる。閉じた回答しか無い質問は、
+	// 判断画面の回答待ちに戻るので、質問ごと終える手段が要る。判断に反映した回答は
+	// 閉じられないので、反映済みの質問はここで止まる。
+	open := []any{}
+	for _, a := range q.Answers {
+		if a.Closed == nil {
+			open = append(open, a.AnswerID)
 		}
-		return nil, core.Errf("conflict", fmt.Sprintf("question %s already has answers; apply or close each answer instead", q.ID), "answers", ids)
+	}
+	if len(open) > 0 {
+		return nil, core.Errf("conflict", fmt.Sprintf("question %s has answers that are not closed; apply or close each answer first", q.ID), "answers", open)
 	}
 	if replacedBy != nil {
 		if *replacedBy == q.ID {

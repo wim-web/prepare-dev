@@ -526,6 +526,41 @@ func TestReviews(t *testing.T) {
 		}
 	})
 
+	run(t, "cancels an answered question once every answer is closed, and never one with an applied answer", func(t *testing.T) {
+		rt := openRT(t, t.TempDir())
+		spec := ok(rt.Store.CreateRecord("spec", core.OM("title", "仕様", "claims", []any{}), "本文\n"))
+		askOne := func(prompt string) *core.Question {
+			return ok(rt.Questions.Create(CreateQuestionInput{Kind: "single_choice", Prompt: prompt, Subjects: []string{spec.ID}, Options: []core.QuestionOption{{Key: "a", Label: "A", Recommended: ptr(true)}}}))
+		}
+		q := askOne("通じなかった質問")
+		first := answerChoice(t, rt, q.ID, "a")
+		ok(rt.Questions.Close(q.ID, first.AnswerID, "人に通じなかった"))
+		second := answerChoice(t, rt, q.ID, "a")
+		_, err := rt.Questions.Cancel(q.ID, "取り下げる", nil)
+		mustErr(t, err, "apply or close")
+		ok(rt.Questions.Close(q.ID, second.AnswerID, "人に通じなかった"))
+		c := ok(rt.Questions.Cancel(q.ID, "取り下げる", nil))
+		if c.State != "cancelled" || c.Cancelled == nil || len(c.Answers) != 2 {
+			t.Fatalf("cancel keeps the closed answers: %+v", c)
+		}
+		st := ok(rt.Status.View())
+		for _, w := range st.WaitingQuestions {
+			if w.QuestionID == q.ID {
+				t.Fatal("a cancelled question is still waiting for an answer")
+			}
+		}
+		for _, p := range st.Pending {
+			if p.QuestionID == q.ID {
+				t.Fatal("a closed answer of a cancelled question is still pending")
+			}
+		}
+		applied := askOne("反映した質問")
+		a := answerChoice(t, rt, applied.ID, "a")
+		ok(rt.Questions.Apply(applied.ID, a.AnswerID, core.DecisionDraft{Title: "決定", Body: "本文\n", Alternatives: []string{}}, nil, nil))
+		_, err = rt.Questions.Cancel(applied.ID, "取り下げる", nil)
+		mustErr(t, err, "apply or close")
+	})
+
 	run(t, "trace follows links in both directions so DIS → REQ → DES → SPEC can be walked", func(t *testing.T) {
 		rt := openRT(t, t.TempDir())
 		dis := ok(rt.Store.CreateRecord("discovery", core.OM("title", "問題", "problem", "p"), "本文\n"))

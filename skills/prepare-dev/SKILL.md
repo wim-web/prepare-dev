@@ -48,7 +48,7 @@ skill から `ppdev` CLI を実行し、共通の runtime を通して問題の�
 
 同じ `answer_id` で `question_apply` を再試行しても判断は増えない。
 
-対象を直す必要が出て、まだ回答のない質問を作り直すときは、直した後に新しい版で `question_create` し、古い質問を `question_cancel`（`reason` と `replaced_by` に新しい質問の id）で取り消す。回答のある質問は取り消せないので、回答ごとに `question_apply` か `question_close` で処理する。
+対象を直す必要が出て、まだ回答のない質問を作り直すときは、直した後に新しい版で `question_create` し、古い質問を `question_cancel`（`reason` と `replaced_by` に新しい質問の id）で取り消す。回答のある質問は、回答ごとに `question_apply` か `question_close` で処理する。閉じた回答しか無い質問は、判断画面の回答待ちに戻る（人がもう一度答えられる）。質問ごと終えるなら、回答をすべて閉じてから `question_cancel` する。判断に反映した回答のある質問は取り消せない。人が「分からない」と答えた質問は、閉じて終えずに、分かる言葉で書き直して聞き直す。
 
 質問を作ったあとは、回答が反映されるまで `subjects` の記録を変えない。変えると版が進み、回答は `stale` になる。質問の id を記録の `links` に書き戻すのもこれに当たるので、しない（`trace` が `subjects` から質問を引く）。質問の前に直すことがあれば、直してから作る。
 
