@@ -1,9 +1,0 @@
-name = "prepare_model"
-defaultTargets = ["PrepareDev", "prepare-model"]
-
-[[lean_lib]]
-name = "PrepareDev"
-
-[[lean_exe]]
-name = "prepare-model"
-root = "Main"
