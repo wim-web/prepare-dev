@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>［ページの名前］</title>
+<style>
+:root{
+  --paper:#f5f2ea; --panel:#fffdf7; --ink:#1c1e20; --sub:#5a5f66; --line:#c8c3b4;
+  --accent:#1d5a86; --accent-soft:#d9e6f0; --stop:#9c3525; --stop-soft:#f3dcd6; --ok:#2c6649; --ok-soft:#d9e9df;
+  --serif:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+  --sans:"Hiragino Sans","Yu Gothic","Noto Sans JP",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#17191b; --panel:#1f2225; --ink:#e9e6df; --sub:#a2a7ad; --line:#3d4247;
+    --accent:#7fb6dc; --accent-soft:#1f3443; --stop:#e08d7e; --stop-soft:#3d2520; --ok:#86c3a2; --ok-soft:#1f3329;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.75}
+main{max-width:1040px;margin:0 auto;padding:40px 24px 72px}
+h1,h2,h3{font-family:var(--serif);font-weight:600;line-height:1.4;margin:0;text-wrap:balance}
+h1{font-size:30px}
+h2{font-size:22px;margin-bottom:6px}
+h3{font-size:17px}
+p{margin:0 0 10px;max-width:68ch}
+code,.id{font-family:var(--mono);font-size:.86em}
+section{margin-top:56px;padding-top:20px;border-top:1px solid var(--line)}
+.sub{color:var(--sub)}
+
+.kind{display:inline-block;font-size:12px;letter-spacing:.08em;border:1px solid var(--ink);padding:1px 8px;margin-bottom:14px}
+.answer{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:36px;align-items:start}
+.answer .lede{margin-top:14px;color:var(--sub)}
+@media (max-width:780px){.answer{grid-template-columns:1fr}}
+
+figure{margin:18px 0 0}
+figcaption{margin-top:8px;font-size:14px;color:var(--sub);max-width:68ch}
+figcaption b{color:var(--ink);font-weight:600}
+
+svg.diagram{display:block;width:100%;height:auto;background:var(--panel);border:1px solid var(--line)}
+svg.diagram text{font-family:var(--sans);font-size:14px;fill:var(--ink)}
+svg.diagram .id{font-family:var(--mono);font-size:11px;fill:var(--sub)}
+svg.diagram .verb{font-size:12.5px}
+svg.diagram .n rect{fill:var(--paper);stroke:var(--ink);stroke-width:1.4}
+svg.diagram .n.end rect{stroke-width:3.2}
+svg.diagram .n.stop rect{stroke:var(--stop);stroke-dasharray:7 4}
+svg.diagram .n.out rect{stroke:var(--sub);stroke-dasharray:2 4}
+svg.diagram .e path{fill:none;stroke:var(--ink);stroke-width:1.4;marker-end:url(#arrow)}
+svg.diagram .e.no path{stroke:var(--stop);stroke-dasharray:7 4;marker-end:url(#arrow-stop)}
+svg.diagram .head{fill:var(--ink)}
+svg.diagram .head-stop{fill:var(--stop)}
+
+.cases,.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px;margin-top:18px}
+.case,.choice{background:var(--panel);border:1px solid var(--line);padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px}
+.case-kind{font-size:12px;letter-spacing:.06em;color:var(--sub)}
+.case-kind.ok::before{content:"○ "}
+.case-kind.no::before{content:"× "}
+.case-kind.edge::before{content:"△ "}
+.when,.then{margin:0;font-size:14.5px;line-height:1.6}
+.when::before{content:"こうすると";display:block;font-size:11.5px;color:var(--sub)}
+.then::before{content:"こうなる";display:block;font-size:11.5px;color:var(--sub)}
+.then{font-weight:600}
+
+.screen{border:1.4px solid var(--ink);background:var(--paper);padding:12px 12px 14px;font-size:13px;line-height:1.5}
+.screen-title{font-family:var(--serif);font-size:14px;margin-bottom:10px}
+.field{margin-bottom:9px}
+.field label{display:block;font-size:11.5px;color:var(--sub)}
+.field .box{border:1px solid var(--sub);background:var(--panel);min-height:28px;padding:3px 8px;display:flex;justify-content:space-between;align-items:center}
+.field .box.empty{color:var(--sub)}
+.field.err .box{border:2px solid var(--stop)}
+.field .msg{font-size:11.5px;color:var(--stop)}
+.field .msg::before{content:"！ "}
+.btn{display:inline-block;border:1.4px solid var(--ink);padding:4px 14px;background:var(--ink);color:var(--paper)}
+.btn.sub{background:transparent;color:var(--ink)}
+.btn.pressed{outline:2px solid var(--accent);outline-offset:3px}
+.tap{font-size:11.5px;color:var(--accent);margin-left:8px}
+.tap::before{content:"← "}
+.banner{border:1px solid var(--line);padding:5px 8px;margin-bottom:9px;font-size:12px}
+.banner.err{border:2px solid var(--stop);background:var(--stop-soft)}
+.banner.ok{border:2px solid var(--ok);background:var(--ok-soft)}
+
+.choice h3{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.choice .id{color:var(--sub)}
+.choice.rec{border:2px solid var(--ink)}
+.rec-mark{font-family:var(--sans);font-size:11.5px;border:1px solid var(--ink);padding:0 6px}
+.choice .diff{margin:0;font-size:14.5px}
+.choice .why{margin:0;font-size:13.5px;color:var(--sub)}
+
+.open ul{margin:10px 0 0;padding-left:1.2em;max-width:68ch}
+.open li{margin-bottom:6px}
+
+table{border-collapse:collapse;margin-top:16px;font-size:14.5px}
+th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+th{background:var(--panel);font-weight:600}
+
+footer{margin-top:64px;padding-top:16px;border-top:1px solid var(--line);font-size:13px;color:var(--sub)}
+footer dl{display:grid;grid-template-columns:max-content 1fr;gap:2px 16px;margin:0}
+footer dt{white-space:nowrap}
+footer dd{margin:0;overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<main>
+
+<header class="answer">
+  <div>
+    <span class="kind">説明図</span>
+    <h1>［作るものを、利用者の言葉で一文］</h1>
+    <p class="lede">［一文で足りないことを、一行だけ］</p>
+  </div>
+  <figure>
+    <div class="screen">
+      <div class="screen-title">［画面の名前］</div>
+      <div class="field"><label>［欄の名前］</label><div class="box">［入っている値］</div></div>
+      <div class="field err"><label>［欄の名前］</label><div class="box empty">［空欄］</div><div class="msg">［出る言葉］</div></div>
+      <span class="btn pressed">［ボタン］</span><span class="tap">ここを押す</span>
+    </div>
+    <figcaption><b>［この絵が言うことを一文で］</b></figcaption>
+  </figure>
+</header>
+
+<section>
+  <h2>［具体例の見出し。話題ではなく、言いたいこと］</h2>
+  <div class="cases">
+    <div class="case">
+      <span class="case-kind ok">うまくいく例</span>
+      <p class="when">［利用者がすること］</p>
+      <div class="screen">［そのときの画面の絵］</div>
+      <p class="then">［起きること］</p>
+    </div>
+    <div class="case">
+      <span class="case-kind no">断る例</span>
+      <p class="when">［利用者がすること］</p>
+      <div class="screen">［そのときの画面の絵］</div>
+      <p class="then">［起きること］</p>
+    </div>
+    <div class="case">
+      <span class="case-kind edge">境目の例</span>
+      <p class="when">［利用者がすること］</p>
+      <div class="screen">［そのときの画面の絵］</div>
+      <p class="then">［起きること］</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>［流れの見出し。話題ではなく、言いたいこと］</h2>
+  <figure>
+    <svg class="diagram" viewBox="0 0 760 200" role="img" aria-label="［この図が言うことを一文で］">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path class="head" d="M0 0L10 5L0 10z"/></marker>
+        <marker id="arrow-stop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path class="head-stop" d="M0 0L10 5L0 10z"/></marker>
+      </defs>
+      <g class="n"><rect x="20" y="60" width="200" height="80" rx="4"/><text class="id" x="30" y="78">N1</text><text x="120" y="106" text-anchor="middle">［場面や状態］</text></g>
+      <g class="e"><path d="M220 100H536"/><text class="verb" x="378" y="90" text-anchor="middle">［何をすると進むか］</text><text class="id" x="378" y="118" text-anchor="middle">E1</text></g>
+      <g class="n end"><rect x="540" y="60" width="200" height="80" rx="4"/><text class="id" x="550" y="78">N2</text><text x="640" y="106" text-anchor="middle">［次の場面や状態］</text></g>
+    </svg>
+    <figcaption><b>［この図が言うことを一文で］</b> 太い枠は行き着く先、破線は先へ進めない道、点線は今回作らないもの。</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>［決めてほしいことの見出し。何を選ぶのか］</h2>
+  <div class="choices">
+    <div class="choice rec">
+      <h3><span class="id">A</span>［案の名前］<span class="rec-mark">おすすめ</span></h3>
+      <p class="diff">［選ぶと、何がどうなるか］</p>
+      <p class="why">［おすすめの理由］</p>
+    </div>
+    <div class="choice">
+      <h3><span class="id">B</span>［案の名前］</h3>
+      <p class="diff">［選ぶと、何がどうなるか］</p>
+    </div>
+  </div>
+</section>
+
+<section class="open">
+  <h2>［今回は作らないもの、まだ決まっていないこと］</h2>
+  <ul>
+    <li>［作らないもの］</li>
+    <li>［まだ確かめていないこと］</li>
+  </ul>
+</section>
+
+<footer>
+  <dl>
+    <dt>元にした依頼</dt><dd>［利用者の言葉をそのまま］</dd>
+    <dt>このページの版</dt><dd>［版。例: 1］</dd>
+    <dt>作った時点</dt><dd>［日時］</dd>
+    <dt>種類</dt><dd>説明図（AI が理解を見せるために描いたもの。確かめた結果ではない）</dd>
+  </dl>
+</footer>
+
+</main>
+</body>
+</html>

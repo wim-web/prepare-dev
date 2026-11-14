@@ -1,0 +1,7 @@
+=== RUN   TestConformsToProvenModel
+    conformance_test.go:173: 長さ 4 までの並び 22621 通りすべてで、モデルと一致した
+--- PASS: TestConformsToProvenModel (0.67s)
+=== RUN   TestConformanceDetectsDifference
+--- PASS: TestConformanceDetectsDifference (0.43s)
+PASS
+ok  	github.com/wim-web/prepare-dev/internal/store	1.307s

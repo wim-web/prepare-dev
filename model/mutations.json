@@ -1,0 +1,26 @@
+[
+  {
+    "name": "取消の確認を外す",
+    "old": "if r ∈ s.cancelled ∨ fresh = false then",
+    "new": "if False ∨ fresh = false then",
+    "claim": "cancelled_run_never_updates_current"
+  },
+  {
+    "name": "やり直すと取消の記録が消える",
+    "old": "  | .start _ => s\n",
+    "new": "  | .start _ => { s with cancelled := [] }\n",
+    "claim": "cancelled_run_never_updates_current"
+  },
+  {
+    "name": "どの回答も採用しない",
+    "old": ", current := some (r, a) }",
+    "new": " }",
+    "claim": "live_run_answer_is_adopted"
+  },
+  {
+    "name": "古い内容への回答も採用する",
+    "old": "if r ∈ s.cancelled ∨ fresh = false then",
+    "new": "if r ∈ s.cancelled ∨ False then",
+    "claim": "stale_answer_never_updates_current"
+  }
+]
